@@ -139,23 +139,30 @@ async def watch_transcript_loop():
                 last_broadcast_content = candidate
                 convs = load_conversations()
                 act_id = convs.get("active_id", "default")
+                ts_now = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
+                ai_msg = {
+                    "sender": "⚡ Antigravity AI",
+                    "text": candidate,
+                    "timestamp": ts_now
+                }
                 if act_id in convs["chats"]:
                     msgs = convs["chats"][act_id]["messages"]
                     if not msgs or msgs[-1].get("text") != candidate:
-                        ts_now = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
-                        msgs.append({
-                            "sender": "⚡ Antigravity AI",
-                            "text": candidate,
-                            "timestamp": ts_now
-                        })
-                        save_conversations(convs)
-                        await manager.broadcast({"type": "ai_status", "status": "idle"})
-                        await manager.broadcast({
-                            "type": "chat_message",
-                            "sender": "⚡ Antigravity AI",
-                            "text": candidate,
-                            "timestamp": ts_now
-                        })
+                        msgs.append(ai_msg)
+                if act_id != "default" and "default" in convs["chats"]:
+                    def_msgs = convs["chats"]["default"]["messages"]
+                    if not def_msgs or def_msgs[-1].get("text") != candidate:
+                        def_msgs.append(ai_msg)
+                save_conversations(convs)
+
+                await manager.broadcast({"type": "ai_status", "status": "idle"})
+                await manager.broadcast({
+                    "type": "chat_message",
+                    "sender": "⚡ Antigravity AI",
+                    "text": candidate,
+                    "timestamp": ts_now,
+                    "chat_id": act_id
+                })
         except Exception as e:
             pass
 
@@ -191,7 +198,7 @@ def upload_image(req: ImageUploadRequest):
 def get_conversations():
     convs = load_conversations()
     chats_list = []
-    for c_id, chat in convs["chats"].items():
+    for c_id, chat in convs.get("chats", {}).items():
         chats_list.append({
             "id": c_id,
             "title": chat.get("title", "Sense títol"),
@@ -210,28 +217,73 @@ def get_chat_detail(chat_id: str):
         raise HTTPException(status_code=404, detail="Conversa no trobada")
     return convs["chats"][chat_id]
 
+class SelectChatRequest(BaseModel):
+    chat_id: str
+
+@app.post("/api/conversations/select")
+def select_chat_api(req: SelectChatRequest):
+    convs = load_conversations()
+    if req.chat_id in convs["chats"]:
+        convs["active_id"] = req.chat_id
+        save_conversations(convs)
+        return {"status": "ok", "active_id": req.chat_id}
+    raise HTTPException(status_code=404, detail="Chat ID no trobat")
+
+class ClearChatRequest(BaseModel):
+    chat_id: str
+
+@app.post("/api/conversations/clear")
+def clear_chat_api(req: ClearChatRequest):
+    convs = load_conversations()
+    if req.chat_id in convs["chats"]:
+        convs["chats"][req.chat_id]["messages"] = []
+        save_conversations(convs)
+        return {"status": "ok", "cleared_id": req.chat_id}
+    raise HTTPException(status_code=404, detail="Chat ID no trobat")
+
+class CreateChatRequest(BaseModel):
+    id: str
+    title: str
+
+@app.post("/api/conversations/create")
+def create_chat_api(req: CreateChatRequest):
+    convs = load_conversations()
+    if req.id not in convs["chats"]:
+        convs["chats"][req.id] = {
+            "id": req.id,
+            "title": req.title,
+            "created_at": datetime.now().strftime("%d/%m %H:%M"),
+            "messages": []
+        }
+    convs["active_id"] = req.id
+    save_conversations(convs)
+    return {"status": "ok", "chat": convs["chats"][req.id]}
+
 class MessageRequest(BaseModel):
     text: str
     client_id: str = "👤 Tu"
+    chat_id: Optional[str] = None
 
 @app.post("/api/send_message")
 async def send_message_api(req: MessageRequest):
     text = req.text
     convs = load_conversations()
-    act_id = convs.get("active_id", "default")
+    act_id = req.chat_id or convs.get("active_id", "default")
+    ts_now = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
+
+    msg_obj = {"sender": "👤 Tu", "text": text, "timestamp": ts_now}
     if act_id in convs["chats"]:
-        convs["chats"][act_id]["messages"].append({
-            "sender": "👤 Tu",
-            "text": text,
-            "timestamp": datetime.now().strftime("%H:%M")
-        })
-        save_conversations(convs)
+        convs["chats"][act_id]["messages"].append(msg_obj)
+    if act_id != "default" and "default" in convs["chats"]:
+        convs["chats"]["default"]["messages"].append(msg_obj)
+    save_conversations(convs)
 
     await manager.broadcast({
         "type": "chat_message",
         "sender": "👤 Tu",
         "text": text,
-        "timestamp": datetime.now().strftime("%d/%m/%Y %H:%M:%S")
+        "timestamp": ts_now,
+        "chat_id": act_id
     })
     asyncio.create_task(process_ai_response(text))
     return {"status": "ok"}
@@ -249,21 +301,22 @@ async def websocket_endpoint(websocket: WebSocket):
             elif message_type == "user_message":
                 text = data.get("text", "")
                 convs = load_conversations()
-                act_id = convs.get("active_id", "default")
+                act_id = data.get("chat_id") or convs.get("active_id", "default")
                 ts_now = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
+
+                msg_obj = {"sender": "👤 Tu", "text": text, "timestamp": ts_now}
                 if act_id in convs["chats"]:
-                    convs["chats"][act_id]["messages"].append({
-                        "sender": "👤 Tu",
-                        "text": text,
-                        "timestamp": ts_now
-                    })
-                    save_conversations(convs)
+                    convs["chats"][act_id]["messages"].append(msg_obj)
+                if act_id != "default" and "default" in convs["chats"]:
+                    convs["chats"]["default"]["messages"].append(msg_obj)
+                save_conversations(convs)
 
                 await manager.broadcast({
                     "type": "chat_message",
                     "sender": "👤 Tu",
                     "text": text,
-                    "timestamp": ts_now
+                    "timestamp": ts_now,
+                    "chat_id": act_id
                 })
                 asyncio.create_task(process_ai_response(text))
     except WebSocketDisconnect:
@@ -526,29 +579,29 @@ HTML_PWA_TEMPLATE = r"""<!DOCTYPE html>
             </div>
         </div>
 
-        <div class="drawer-section-title">💬 Converses i Temes</div>
+        <div class="drawer-section-title">💬 Converses Independents</div>
         <div class="drawer-menu" id="drawer-topics-list" style="margin-bottom: 20px;">
-            <div class="drawer-item active-topic" id="topic-item-all" onclick="selectTopic('all', '🌐 Tots els missatges')">
-                <span>🌐</span> Tots els missatges
+            <div class="drawer-item active-topic" id="topic-item-default" onclick="selectChat('default', '🌐 Xat General (Tots)')">
+                <span>🌐</span> Xat General (Tots)
             </div>
-            <div class="drawer-item" id="topic-item-tfm" onclick="selectTopic('tfm', '🔬 TFM i Ciència')">
-                <span>🔬</span> TFM i Ciència
-            </div>
-            <div class="drawer-item" id="topic-item-salut" onclick="selectTopic('salut', '🩺 Salut i Suplements')">
+            <div class="drawer-item" id="topic-item-salut" onclick="selectChat('salut', '🩺 Salut i Suplements')">
                 <span>🩺</span> Salut i Suplements
             </div>
-            <div class="drawer-item" id="topic-item-gestio" onclick="selectTopic('gestio', '📧 Gestions i Correus')">
+            <div class="drawer-item" id="topic-item-tfm" onclick="selectChat('tfm', '🔬 TFM i Ciència')">
+                <span>🔬</span> TFM i Ciència
+            </div>
+            <div class="drawer-item" id="topic-item-gestio" onclick="selectChat('gestio', '📧 Gestions i Correus')">
                 <span>📧</span> Gestions i Correus
             </div>
-            <div class="drawer-item" onclick="promptNewTopic()">
-                <span>➕</span> Nova Vista Temàtica...
+            <div class="drawer-item" onclick="promptNewChat()">
+                <span>➕</span> Nova Conversa...
             </div>
         </div>
 
         <div class="drawer-section-title">Accions Ràpides</div>
         <div class="drawer-menu">
-            <div class="drawer-item" onclick="clearScreenUI()">
-                <span>🗑️</span> Netejar Pantalla Local
+            <div class="drawer-item" onclick="clearActiveChat()">
+                <span>🗑️</span> Netejar Conversa Actual
             </div>
             <div class="drawer-item" onclick="triggerQuickAction('Resum de correus')">
                 <span>📧</span> Resum de Correus
@@ -705,77 +758,93 @@ HTML_PWA_TEMPLATE = r"""<!DOCTYPE html>
             }
         }
 
-        let currentTopic = 'all';
+        let activeChatId = 'default';
 
-        function selectTopic(topicId, label) {
-            currentTopic = topicId;
+        async function selectChat(chatId, label) {
+            activeChatId = chatId;
             closeDrawer();
 
+            // Set active drawer item styling
+            document.querySelectorAll('#drawer-topics-list .drawer-item').forEach(el => el.classList.remove('active-topic'));
+            const activeEl = document.getElementById(`topic-item-${chatId}`);
+            if (activeEl) activeEl.classList.add('active-topic');
+
+            // Show/hide topic header bar
             const bar = document.getElementById('topic-bar');
             const barLabel = document.getElementById('topic-bar-label');
-            if (topicId === 'all') {
+            if (chatId === 'default') {
                 if (bar) bar.style.display = 'none';
             } else {
                 if (bar) bar.style.display = 'flex';
-                if (barLabel) barLabel.innerHTML = label || `💬 Vista: ${topicId}`;
+                if (barLabel) barLabel.innerHTML = label || `💬 ${chatId}`;
             }
 
-            // Highlight active drawer item
-            document.querySelectorAll('#drawer-topics-list .drawer-item').forEach(el => el.classList.remove('active-topic'));
-            const activeEl = document.getElementById(`topic-item-${topicId}`);
-            if (activeEl) activeEl.classList.add('active-topic');
+            try {
+                await fetch('/api/conversations/select', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ chat_id: chatId })
+                });
+            } catch(e) {}
 
-            // Filter all messages
-            const msgs = document.querySelectorAll('.msg');
-            msgs.forEach(div => {
-                const t = div.dataset.topic || 'all';
-                if (topicId === 'all' || t === topicId) {
-                    div.style.display = 'block';
-                } else {
-                    div.style.display = 'none';
-                }
-            });
-
-            const box = document.getElementById('chat-messages');
-            if (box) box.scrollTop = box.scrollHeight;
+            await loadChatMessages(chatId);
         }
 
-        function promptNewTopic() {
-            const name = prompt("Nom de la nova vista temàtica (p. ex. Física, Receptes, Viatges):");
+        async function loadChatMessages(chatId) {
+            try {
+                const targetId = chatId || activeChatId;
+                const r = await fetch(`/api/conversations/${targetId}`);
+                const chat = await r.json();
+                const box = document.getElementById('chat-messages');
+                box.innerHTML = '';
+                (chat.messages || []).forEach(m => {
+                    appendMsg(m.sender.includes('Tu') ? 'user' : 'bot', m.sender, m.text, m.timestamp);
+                });
+            } catch(e) { console.error(e); }
+        }
+
+        async function clearActiveChat() {
+            closeDrawer();
+            if (!confirm(`Confirmes que vols esborrar l'historial d'aquesta conversa?`)) return;
+            try {
+                await fetch('/api/conversations/clear', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ chat_id: activeChatId })
+                });
+                const box = document.getElementById('chat-messages');
+                if (box) box.innerHTML = '';
+            } catch(e) { console.error(e); }
+        }
+
+        async function promptNewChat() {
+            const name = prompt("Nom de la nova conversa (p. ex. Receptes, Viatges, Projectes):");
             if (!name) return;
-            const topicId = name.toLowerCase().replace(/[^a-z0-9]/g, '_');
-            const list = document.getElementById('drawer-topics-list');
-            if (list) {
-                const newItem = document.createElement('div');
-                newItem.className = 'drawer-item';
-                newItem.id = `topic-item-${topicId}`;
-                newItem.onclick = () => selectTopic(topicId, `📌 ${name}`);
-                newItem.innerHTML = `<span>📌</span> ${name}`;
-                list.insertBefore(newItem, list.lastElementChild);
-            }
-            selectTopic(topicId, `📌 ${name}`);
+            const chatId = name.toLowerCase().replace(/[^a-z0-9]/g, '_');
+            try {
+                await fetch('/api/conversations/create', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ id: chatId, title: name })
+                });
+                const list = document.getElementById('drawer-topics-list');
+                if (list) {
+                    const newItem = document.createElement('div');
+                    newItem.className = 'drawer-item';
+                    newItem.id = `topic-item-${chatId}`;
+                    newItem.onclick = () => selectChat(chatId, `📌 ${name}`);
+                    newItem.innerHTML = `<span>📌</span> ${name}`;
+                    list.insertBefore(newItem, list.lastElementChild);
+                }
+                selectChat(chatId, `📌 ${name}`);
+            } catch(e) { console.error(e); }
         }
 
-        function appendMsg(cls, sender, txt, timeStr, topicId) {
+        function appendMsg(cls, sender, txt, timeStr) {
             const box = document.getElementById('chat-messages');
             if (!box) return;
             const div = document.createElement('div');
-            
-            // Assign topicId or default to current active topic
-            let msgTopic = topicId;
-            if (!msgTopic || msgTopic === 'all') {
-                msgTopic = currentTopic;
-            }
             div.className = `msg ${cls}`;
-            div.dataset.topic = msgTopic;
-
-            // Display if matching current topic or viewing all
-            if (currentTopic !== 'all' && msgTopic !== 'all' && msgTopic !== currentTopic) {
-                div.style.display = 'none';
-            } else {
-                div.style.display = 'block';
-            }
-
             let html = renderMarkdownWithMath(sender, txt);
             if (cls === 'user') {
                 const now = timeStr || new Date().toLocaleString('ca-ES', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit' });
@@ -788,15 +857,7 @@ HTML_PWA_TEMPLATE = r"""<!DOCTYPE html>
         }
 
         async function loadInitialChat() {
-            try {
-                const r = await fetch('/api/conversations/default');
-                const chat = await r.json();
-                const box = document.getElementById('chat-messages');
-                box.innerHTML = '';
-                (chat.messages || []).forEach(m => {
-                    appendMsg(m.sender.includes('Tu') ? 'user' : 'bot', m.sender, m.text, m.timestamp, m.topic || 'all');
-                });
-            } catch(e) { console.error(e); }
+            await loadChatMessages(activeChatId);
         }
 
         // --- Side Drawer Functions ---
@@ -818,15 +879,9 @@ HTML_PWA_TEMPLATE = r"""<!DOCTYPE html>
             }
         }
 
-        function clearScreenUI() {
-            closeDrawer();
-            const box = document.getElementById('chat-messages');
-            if (box) box.innerHTML = '';
-        }
-
         function syncChatUI() {
             closeDrawer();
-            loadInitialChat();
+            loadChatMessages(activeChatId);
         }
 
         function triggerQuickAction(txt) {
@@ -849,7 +904,9 @@ HTML_PWA_TEMPLATE = r"""<!DOCTYPE html>
                     const ind = document.getElementById('thinking-indicator');
                     if (ind) ind.style.display = 'none';
                     if (!data.sender.includes('Tu')) {
-                        appendMsg('bot', data.sender, data.text);
+                        if (activeChatId === 'default' || data.chat_id === activeChatId || !data.chat_id) {
+                            appendMsg('bot', data.sender, data.text, data.timestamp);
+                        }
                     }
                 }
             };
@@ -960,13 +1017,13 @@ HTML_PWA_TEMPLATE = r"""<!DOCTYPE html>
 
         async function sendPayload(fullText) {
             if (ws && ws.readyState === WebSocket.OPEN) {
-                ws.send(JSON.stringify({ type: 'user_message', text: fullText }));
+                ws.send(JSON.stringify({ type: 'user_message', text: fullText, chat_id: activeChatId }));
             } else {
                 try {
                     await fetch('/api/send_message', {
                         method: 'POST',
                         headers: {'Content-Type': 'application/json'},
-                        body: JSON.stringify({ text: fullText })
+                        body: JSON.stringify({ text: fullText, chat_id: activeChatId })
                     });
                 } catch(e) { console.error('Send error:', e); }
             }
