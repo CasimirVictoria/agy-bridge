@@ -730,7 +730,7 @@ HTML_PWA_TEMPLATE = r"""<!DOCTYPE html>
             msgs.forEach(div => {
                 const t = div.dataset.topic || 'all';
                 if (topicId === 'all' || t === topicId || t === 'all') {
-                    div.style.display = 'flex';
+                    div.style.display = 'block';
                 } else {
                     div.style.display = 'none';
                 }
@@ -767,6 +767,8 @@ HTML_PWA_TEMPLATE = r"""<!DOCTYPE html>
             // Hide if not matching current active topic filter
             if (currentTopic !== 'all' && msgTopic !== 'all' && msgTopic !== currentTopic) {
                 div.style.display = 'none';
+            } else {
+                div.style.display = 'block';
             }
 
             let html = renderMarkdownWithMath(sender, txt);
