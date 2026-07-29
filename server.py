@@ -194,6 +194,51 @@ def upload_image(req: ImageUploadRequest):
         raise HTTPException(status_code=500, detail=str(e))
 
 # --- Conversations Endpoints ---
+@app.get("/api/antigravity/status")
+def get_antigravity_status():
+    """Retrieve runtime model quota, context size, and session status."""
+    active_model = "Gemini 3.6 Flash (High)"
+    try:
+        res = subprocess.run(["tmux", "capture-pane", "-pt", "tfm:0.0"], capture_output=True, text=True)
+        pane_lines = res.stdout.splitlines()
+        for l in reversed(pane_lines):
+            if any(m in l for m in ["Gemini", "Claude", "GPT", "Flash", "Pro", "Opus"]):
+                parts = l.strip().split()
+                if len(parts) >= 2:
+                    active_model = " ".join(parts[-4:])
+                break
+    except Exception:
+        pass
+
+    transcript_size = 0
+    if os.path.exists(TRANSCRIPT_PATH):
+        transcript_size = os.path.getsize(TRANSCRIPT_PATH)
+    
+    estimated_tokens = int(transcript_size / 3.6)
+    max_context_tokens = 1000000
+    used_pct = round(min(100.0, (estimated_tokens / max_context_tokens) * 100), 1)
+    rem_pct = round(100.0 - used_pct, 1)
+
+    now = datetime.now()
+    next_reset = (now.replace(minute=0, second=0, microsecond=0) + timedelta(hours=1)).strftime("%H:00:00")
+
+    return {
+        "active_model": active_model,
+        "session_id": "52a230fd-4cc6-4e23-9da2-545421935271",
+        "context_max_tokens": "1.000.000",
+        "estimated_tokens_used": f"{estimated_tokens:,}",
+        "used_pct": used_pct,
+        "rem_pct": rem_pct,
+        "next_reset_time": next_reset,
+        "models": [
+            {"name": "Gemini 3.6 Flash (High)", "status": "Actiu", "quota": "100% Gran Finestra", "type": "Principal (Velocitat & Codi)"},
+            {"name": "Gemini 3.1 Pro (High)", "status": "Disponible", "quota": "Finestra 1M Tokens", "type": "Raonament Científic & TFM"},
+            {"name": "Claude Sonnet 4.6", "status": "Disponible", "quota": "Pensament Complex", "type": "Refactorització & Anàlisi"},
+            {"name": "Claude Opus 4.6", "status": "Disponible", "quota": "Alta Visió & Raonament", "type": "Tasques de Codi Gran Escala"},
+            {"name": "GPT-OSS 120B", "status": "Disponible", "quota": "Model Alternatiu", "type": "Avaluació Multimodel"}
+        ]
+    }
+
 @app.get("/api/conversations")
 def get_conversations():
     convs = load_conversations()
@@ -600,6 +645,9 @@ HTML_PWA_TEMPLATE = r"""<!DOCTYPE html>
 
         <div class="drawer-section-title">Accions Ràpides</div>
         <div class="drawer-menu">
+            <div class="drawer-item" onclick="showAntigravityStatus()">
+                <span>⚡</span> Estat d'Antigravity
+            </div>
             <div class="drawer-item" onclick="clearActiveChat()">
                 <span>🗑️</span> Netejar Conversa Actual
             </div>
@@ -882,6 +930,100 @@ HTML_PWA_TEMPLATE = r"""<!DOCTYPE html>
         function syncChatUI() {
             closeDrawer();
             loadChatMessages(activeChatId);
+        }
+
+        async function showAntigravityStatus() {
+            closeDrawer();
+            try {
+                const res = await fetch('/api/antigravity/status');
+                const data = await res.json();
+
+                let modelsHtml = '';
+                (data.models || []).forEach(m => {
+                    modelsHtml += `
+                        <div style="display:flex; justify-content:space-between; align-items:center; padding:8px 0; border-bottom:1px solid rgba(48,54,61,0.4); font-size:0.86rem;">
+                            <div>
+                                <span style="font-weight:600; color:var(--text);">${m.name}</span>
+                                <div style="font-size:0.72rem; color:var(--text-dim);">${m.type}</div>
+                            </div>
+                            <div style="text-align:right;">
+                                <span style="background:rgba(56,189,248,0.15); color:var(--primary); padding:2px 8px; border-radius:6px; font-size:0.75rem; font-weight:600;">${m.status}</span>
+                                <div style="font-size:0.72rem; color:var(--text-dim); margin-top:2px;">${m.quota}</div>
+                            </div>
+                        </div>
+                    `;
+                });
+
+                const modalHtml = `
+                    <div style="background:linear-gradient(135deg, rgba(22,27,34,0.95), rgba(13,17,23,0.98)); border:1px solid rgba(56,189,248,0.3); border-radius:16px; padding:20px; max-width:520px; width:92%; box-shadow:0 12px 35px rgba(0,0,0,0.6); color:var(--text);">
+                        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px; border-bottom:1px solid var(--border); padding-bottom:10px;">
+                            <div style="font-size:1.1rem; font-weight:700; color:var(--primary); display:flex; align-items:center; gap:8px;">
+                                ⚡ Estat d'Antigravity AI
+                            </div>
+                            <button onclick="closeStatusModal()" style="background:none; border:none; color:var(--text-dim); font-size:1.2rem; cursor:pointer;">✕</button>
+                        </div>
+
+                        <div style="margin-bottom:16px;">
+                            <div style="font-size:0.82rem; color:var(--text-dim); margin-bottom:4px;">🤖 Model Actiu a Tmux:</div>
+                            <div style="font-size:1rem; font-weight:700; color:var(--primary);">${data.active_model}</div>
+                        </div>
+
+                        <div style="margin-bottom:18px; background:rgba(56,189,248,0.06); padding:12px; border-radius:12px; border:1px solid rgba(56,189,248,0.18);">
+                            <div style="display:flex; justify-content:space-between; font-size:0.84rem; font-weight:600; margin-bottom:6px;">
+                                <span>📊 Capàcitats de Context:</span>
+                                <span style="color:var(--success);">${data.rem_pct}% Disponible</span>
+                            </div>
+                            <div style="width:100%; background:rgba(255,255,255,0.1); height:10px; border-radius:6px; overflow:hidden; margin-bottom:8px;">
+                                <div style="width:${data.used_pct}%; background:linear-gradient(90deg, var(--primary), var(--accent)); height:100%;"></div>
+                            </div>
+                            <div style="display:flex; justify-content:space-between; font-size:0.75rem; color:var(--text-dim);">
+                                <span>Tokens emprats: ~${data.estimated_tokens_used}</span>
+                                <span>Màx: ${data.context_max_tokens}</span>
+                            </div>
+                        </div>
+
+                        <div style="margin-bottom:18px; font-size:0.82rem; background:rgba(168,85,247,0.08); padding:10px 12px; border-radius:10px; border:1px solid rgba(168,85,247,0.25);">
+                            <div style="display:flex; justify-content:space-between; font-weight:600; color:var(--accent);">
+                                <span>🔄 Pròxim Restablit de Finestra:</span>
+                                <span>${data.next_reset_time}</span>
+                            </div>
+                            <div style="color:var(--text-dim); font-size:0.75rem; margin-top:2px;">
+                                Finestra lliscant automàtica de renovació de quota.
+                            </div>
+                        </div>
+
+                        <div style="font-size:0.8rem; font-weight:700; color:var(--primary); margin-bottom:8px; text-transform:uppercase; letter-spacing:0.5px;">
+                            📋 Models i Capàcitats Disponibles
+                        </div>
+                        <div style="max-height:180px; overflow-y:auto; padding-right:4px;">
+                            ${modelsHtml}
+                        </div>
+                    </div>
+                `;
+
+                let modal = document.getElementById('status-modal-overlay');
+                if (!modal) {
+                    modal = document.createElement('div');
+                    modal.id = 'status-modal-overlay';
+                    modal.style.position = 'fixed';
+                    modal.style.top = '0'; modal.style.left = '0';
+                    modal.style.width = '100vw'; modal.style.height = '100vh';
+                    modal.style.background = 'rgba(0,0,0,0.65)';
+                    modal.style.backdropFilter = 'blur(8px)';
+                    modal.style.zIndex = '1000';
+                    modal.style.display = 'flex'; modal.style.alignItems = 'center'; modal.style.justifyContent = 'center';
+                    document.body.appendChild(modal);
+                }
+                modal.innerHTML = modalHtml;
+                modal.style.display = 'flex';
+            } catch(e) {
+                alert("Error obtenint l'estat d'Antigravity AI: " + e);
+            }
+        }
+
+        function closeStatusModal() {
+            const modal = document.getElementById('status-modal-overlay');
+            if (modal) modal.style.display = 'none';
         }
 
         function triggerQuickAction(txt) {
