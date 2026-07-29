@@ -1056,11 +1056,115 @@ HTML_PWA_TEMPLATE = r"""<!DOCTYPE html>
                         if (activeChatId === 'default' || data.chat_id === activeChatId || !data.chat_id) {
                             appendMsg('bot', data.sender, data.text, data.timestamp);
                         }
+                        // Check if the response contains a question or interactive prompt
+                        checkForInteractiveQuestion(data.text);
                     }
+                } else if (data.type === 'user_question') {
+                    showQuestionModal(data);
                 }
             };
 
             ws.onclose = () => setTimeout(initWS, 2000);
+        }
+
+        function checkForInteractiveQuestion(txt) {
+            // Auto-detect structured question blocks or explicit user options
+            if (!txt) return;
+            let options = [];
+            let questionText = '';
+
+            // Extract explicit options if marked with bullets, numbers or option patterns
+            const lines = txt.split('\n');
+            const optLines = lines.filter(l => l.trim().match(/^[0-9]\.|\* |\- |\[ \]|\( \)/));
+            if (txt.includes('?') && optLines.length >= 2 && optLines.length <= 6) {
+                questionText = txt.split('\n')[0] || txt.substring(0, 150);
+                options = optLines.map(l => l.replace(/^[0-9]\.|\* |\- |\[ \]|\( \)/, '').trim()).filter(l => l.length < 80);
+                if (options.length >= 2) {
+                    showQuestionModal({ question: txt, options: options });
+                }
+            }
+        }
+
+        function showQuestionModal(data) {
+            let optionsHtml = '';
+            (data.options || []).forEach((opt, idx) => {
+                optionsHtml += `
+                    <button type="button" onclick="submitQuestionAnswer('${opt.replace(/'/g, "\\'")}')" 
+                            style="background:rgba(56,189,248,0.12); border:1px solid rgba(56,189,248,0.3); color:var(--primary); padding:10px 14px; border-radius:10px; font-size:0.92rem; font-weight:600; text-align:left; cursor:pointer; transition:all 0.15s ease;">
+                        ${idx + 1}. ${opt}
+                    </button>
+                `;
+            });
+
+            const modalHtml = `
+                <div style="background:linear-gradient(135deg, rgba(22,27,34,0.96), rgba(13,17,23,0.98)); border:1px solid rgba(56,189,248,0.4); border-radius:18px; padding:22px; max-width:540px; width:92%; box-shadow:0 15px 40px rgba(0,0,0,0.7); color:var(--text);">
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px; border-bottom:1px solid var(--border); padding-bottom:10px;">
+                        <div style="font-size:1.1rem; font-weight:700; color:var(--primary); display:flex; align-items:center; gap:8px;">
+                            ❓ Pregunta d'Antigravity AI
+                        </div>
+                        <button onclick="closeQuestionModal()" style="background:none; border:none; color:var(--text-dim); font-size:1.2rem; cursor:pointer;">✕</button>
+                    </div>
+
+                    <div style="font-size:0.96rem; line-height:1.5; margin-bottom:16px; max-height:220px; overflow-y:auto; color:var(--text);">
+                        ${renderMarkdownWithMath('⚡ Antigravity AI', data.question || '')}
+                    </div>
+
+                    ${optionsHtml ? `
+                        <div style="display:flex; flex-direction:column; gap:8px; margin-bottom:16px;">
+                            <div style="font-size:0.75rem; font-weight:700; color:var(--text-dim); text-transform:uppercase; letter-spacing:0.5px;">Tria una opció:</div>
+                            ${optionsHtml}
+                        </div>
+                    ` : ''}
+
+                    <div style="display:flex; gap:8px; align-items:center; margin-top:12px;">
+                        <input type="text" id="modal-answer-input" placeholder="Escriu la teua resposta personalitzada..." 
+                               onkeydown="if(event.key==='Enter') submitCustomQuestionAnswer()"
+                               style="flex:1; padding:12px; background:#161b22; border:1px solid var(--border); color:var(--text); border-radius:10px; outline:none; font-size:0.92rem;">
+                        <button type="button" onclick="submitCustomQuestionAnswer()" 
+                                style="padding:12px 18px; background:linear-gradient(135deg, var(--primary), #0284c7); color:#fff; font-weight:600; border:none; border-radius:10px; cursor:pointer; font-size:0.92rem;">
+                            Enviar
+                        </button>
+                    </div>
+                </div>
+            `;
+
+            let modal = document.getElementById('question-modal-overlay');
+            if (!modal) {
+                modal = document.createElement('div');
+                modal.id = 'question-modal-overlay';
+                modal.style.position = 'fixed';
+                modal.style.top = '0'; modal.style.left = '0';
+                modal.style.width = '100vw'; modal.style.height = '100vh';
+                modal.style.background = 'rgba(0,0,0,0.7)';
+                modal.style.backdropFilter = 'blur(10px)';
+                modal.style.zIndex = '1000';
+                modal.style.display = 'flex'; modal.style.alignItems = 'center'; modal.style.justifyContent = 'center';
+                document.body.appendChild(modal);
+            }
+            modal.innerHTML = modalHtml;
+            modal.style.display = 'flex';
+            setTimeout(() => {
+                const inp = document.getElementById('modal-answer-input');
+                if (inp) inp.focus();
+            }, 100);
+        }
+
+        function closeQuestionModal() {
+            const modal = document.getElementById('question-modal-overlay');
+            if (modal) modal.style.display = 'none';
+        }
+
+        function submitQuestionAnswer(answerTxt) {
+            closeQuestionModal();
+            appendMsg('user', '👤 Tu', answerTxt);
+            sendPayload(answerTxt);
+        }
+
+        function submitCustomQuestionAnswer() {
+            const inp = document.getElementById('modal-answer-input');
+            if (inp && inp.value.trim()) {
+                submitQuestionAnswer(inp.value.trim());
+            }
         }
 
         // --- Action Dropdown Menu (Gemini Style ➕) ---
