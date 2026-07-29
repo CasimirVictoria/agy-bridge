@@ -1,0 +1,9 @@
+#!/bin/bash
+SESSION="tfm"
+TFM_DIR="/home/casimir/Documents/Segon_Cervell/TFM"
+
+if ! /usr/bin/tmux has-session -t "$SESSION" 2>/dev/null; then
+    /usr/bin/tmux new-session -d -s "$SESSION" -n "tfm" -c "$TFM_DIR"
+    sleep 1
+    /usr/bin/tmux send-keys -t "$SESSION:tfm" "/home/casimir/.local/bin/agy --dangerously-skip-permissions --conversation 52a230fd-4cc6-4e23-9da2-545421935271" C-m
+fi
