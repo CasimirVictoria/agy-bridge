@@ -182,19 +182,22 @@ async def process_ai_response(prompt: str):
                 "type": "chat_message",
                 "sender": "⚡ Antigravity AI",
                 "text": candidate,
-                "timestamp": datetime.now().strftime("%H:%M")
+                "timestamp": datetime.now().strftime("%d/%m/%Y %H:%M:%S")
             })
 
             # Save to conversations file
             convs = load_conversations()
             act_id = convs.get("active_id", "default")
             if act_id in convs["chats"]:
-                convs["chats"][act_id]["messages"].append({
-                    "sender": "⚡ Antigravity AI",
-                    "text": candidate,
-                    "timestamp": datetime.now().strftime("%H:%M")
-                })
-                save_conversations(convs)
+                # Prevent duplicates
+                msgs = convs["chats"][act_id]["messages"]
+                if not msgs or msgs[-1].get("text") != candidate:
+                    msgs.append({
+                        "sender": "⚡ Antigravity AI",
+                        "text": candidate,
+                        "timestamp": datetime.now().strftime("%d/%m/%Y %H:%M:%S")
+                    })
+                    save_conversations(convs)
             break
 
         await manager.broadcast({"type": "ai_status", "status": "idle"})
@@ -203,11 +206,42 @@ async def process_ai_response(prompt: str):
         print(f"Error processing AI response: {e}")
         await manager.broadcast({"type": "ai_status", "status": "idle"})
 
-        await manager.broadcast({"type": "ai_status", "status": "idle"})
+last_broadcast_content = ""
 
-    except Exception as e:
-        print(f"Error processing AI response: {e}")
-        await manager.broadcast({"type": "ai_status", "status": "idle"})
+async def watch_transcript_loop():
+    """Background task: Continuously sync any new response from transcript.jsonl (even if typed in tmux)."""
+    global last_broadcast_content
+    while True:
+        try:
+            await asyncio.sleep(1.0)
+            candidate = get_latest_ai_response_from_transcript()
+            if candidate and candidate != last_broadcast_content:
+                convs = load_conversations()
+                act_id = convs.get("active_id", "default")
+                if act_id in convs["chats"]:
+                    msgs = convs["chats"][act_id]["messages"]
+                    if not msgs or msgs[-1].get("text") != candidate:
+                        last_broadcast_content = candidate
+                        ts_now = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
+                        msgs.append({
+                            "sender": "⚡ Antigravity AI",
+                            "text": candidate,
+                            "timestamp": ts_now
+                        })
+                        save_conversations(convs)
+                        await manager.broadcast({"type": "ai_status", "status": "idle"})
+                        await manager.broadcast({
+                            "type": "chat_message",
+                            "sender": "⚡ Antigravity AI",
+                            "text": candidate,
+                            "timestamp": ts_now
+                        })
+        except Exception as e:
+            pass
+
+@app.on_event("startup")
+def start_background_watcher():
+    asyncio.create_task(watch_transcript_loop())
 
 # --- Image Upload Endpoint ---
 class ImageUploadRequest(BaseModel):
@@ -277,7 +311,7 @@ async def send_message_api(req: MessageRequest):
         "type": "chat_message",
         "sender": "👤 Tu",
         "text": text,
-        "timestamp": datetime.now().strftime("%H:%M")
+        "timestamp": datetime.now().strftime("%d/%m/%Y %H:%M:%S")
     })
     asyncio.create_task(process_ai_response(text))
     return {"status": "ok"}
@@ -296,11 +330,12 @@ async def websocket_endpoint(websocket: WebSocket):
                 text = data.get("text", "")
                 convs = load_conversations()
                 act_id = convs.get("active_id", "default")
+                ts_now = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
                 if act_id in convs["chats"]:
                     convs["chats"][act_id]["messages"].append({
                         "sender": "👤 Tu",
                         "text": text,
-                        "timestamp": datetime.now().strftime("%H:%M")
+                        "timestamp": ts_now
                     })
                     save_conversations(convs)
 
@@ -308,7 +343,7 @@ async def websocket_endpoint(websocket: WebSocket):
                     "type": "chat_message",
                     "sender": "👤 Tu",
                     "text": text,
-                    "timestamp": datetime.now().strftime("%H:%M")
+                    "timestamp": ts_now
                 })
                 asyncio.create_task(process_ai_response(text))
     except WebSocketDisconnect:
@@ -616,12 +651,17 @@ HTML_PWA_TEMPLATE = r"""<!DOCTYPE html>
             }
         }
 
-        function appendMsg(cls, sender, txt) {
+        function appendMsg(cls, sender, txt, timeStr) {
             const box = document.getElementById('chat-messages');
             if (!box) return;
             const div = document.createElement('div');
             div.className = `msg ${cls}`;
-            div.innerHTML = renderMarkdownWithMath(sender, txt);
+            let html = renderMarkdownWithMath(sender, txt);
+            if (cls === 'user') {
+                const now = timeStr || new Date().toLocaleString('ca-ES', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit' });
+                html += `<div style="text-align:right; font-size:0.68rem; opacity:0.5; margin-top:6px; font-weight:400; letter-spacing:0.2px;">${now}</div>`;
+            }
+            div.innerHTML = html;
             enhanceCodeBlocks(div);
             box.appendChild(div);
             box.scrollTop = box.scrollHeight;
@@ -634,7 +674,7 @@ HTML_PWA_TEMPLATE = r"""<!DOCTYPE html>
                 const box = document.getElementById('chat-messages');
                 box.innerHTML = '';
                 (chat.messages || []).forEach(m => {
-                    appendMsg(m.sender.includes('Tu') ? 'user' : 'bot', m.sender, m.text);
+                    appendMsg(m.sender.includes('Tu') ? 'user' : 'bot', m.sender, m.text, m.timestamp);
                 });
             } catch(e) { console.error(e); }
         }
