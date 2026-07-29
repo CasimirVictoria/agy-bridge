@@ -26,15 +26,16 @@ Having **Google Antigravity CLI (`agy`)** running continuously as a systemd back
 * ⚡ **FastAPI & WebSockets Engine:** Duplex communication streaming updates in real time while tracking `agy` execution status.
 * 🛡️ **Autonomous Execution:** Pre-approved permission modes (`--dangerously-skip-permissions`) eliminating terminal interactive prompts.
 
-## 📸 Visual Preview
+## 📸 Visual Preview: Terminal Daemon vs. Web PWA Interface
 
-Here is how the mobile PWA web interface renders real-time responses containing complex LaTeX mathematical equations (such as Maxwell's electrodynamic equations in material media rendered via KaTeX):
+The **Google Antigravity CLI (`agy`)** runs continuously as a persistent `systemd` background service (`tmux-tfm.service`) inside a headless `tmux` terminal session. 
 
-<p align="center">
-  <img src="docs/latex_interface_preview.png" alt="AGY-Bridge Mobile Interface preview rendering KaTeX LaTeX equations" width="450">
-</p>
+By layering **AGY-Bridge** on top of this background daemon, users gain a dramatic leap in **readability, ergonomics, and daily usability** without compromising terminal power:
 
-*Features shown:* Pristine glassmorphic dark theme, KaTeX vector LaTeX math equations, timestamp tracking down to seconds on user messages, and responsive mobile layout.
+| Persistent `tmux` Terminal Engine | Mobile Web PWA Interface |
+| :---: | :---: |
+| <img src="docs/tmux_terminal_preview.png" alt="Raw persistent tmux terminal daemon running agy CLI" width="420"> | <img src="docs/latex_interface_preview.png" alt="AGY-Bridge Mobile Web PWA rendering KaTeX LaTeX equations" width="380"> |
+| *Raw Linux `tmux` session running `agy` continuously as a background `systemd` service.* | *Pristine KaTeX vector LaTeX math rendering, glassmorphic UI, and mobile controls.* |
 
 ---
 
