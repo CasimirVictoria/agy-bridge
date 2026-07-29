@@ -517,9 +517,6 @@ HTML_PWA_TEMPLATE = r"""<!DOCTYPE html>
             <div class="drawer-item" onclick="triggerQuickAction('Mostra les tasques de tasks.org')">
                 <span>📝</span> Tasques Org-Mode
             </div>
-            <div class="drawer-item" onclick="triggerQuickAction('Ofertes d Oli AOVE en els supermercats')">
-                <span>🛢️</span> Ofertes Oli AOVE
-            </div>
             <div class="drawer-item" onclick="triggerQuickAction('Estat del servidor casalap (RAM, disc, CPU)')">
                 <span>📊</span> Estat del Servidor
             </div>
