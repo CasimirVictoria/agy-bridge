@@ -16,6 +16,16 @@ It allows you to securely control your local workstation, run Python/SageMath co
 * ⚡ **FastAPI & WebSockets Engine:** Duplex communication streaming updates in real time while tracking `agy` execution status.
 * 🛡️ **Autonomous Execution:** Pre-approved permission modes (`--dangerously-skip-permissions`) eliminating terminal interactive prompts.
 
+## 📸 Visual Preview
+
+Here is how the mobile PWA web interface renders real-time responses containing complex LaTeX mathematical equations (such as Maxwell's electrodynamic equations in material media rendered via KaTeX):
+
+<p align="center">
+  <img src="docs/latex_interface_preview.png" alt="AGY-Bridge Mobile Interface preview rendering KaTeX LaTeX equations" width="450">
+</p>
+
+*Features shown:* Pristine glassmorphic dark theme, KaTeX vector LaTeX math equations, timestamp tracking down to seconds on user messages, and responsive mobile layout.
+
 ---
 
 ## 🏗️ Architecture
