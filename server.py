@@ -1070,11 +1070,7 @@ HTML_PWA_TEMPLATE = r"""<!DOCTYPE html>
                         if (activeChatId === 'default' || data.chat_id === activeChatId || !data.chat_id) {
                             appendMsg('bot', data.sender, data.text, data.timestamp);
                         }
-                        // Check if the response contains a question or interactive prompt
-                        checkForInteractiveQuestion(data.text);
                     }
-                } else if (data.type === 'user_question') {
-                    showQuestionModal(data);
                 }
             };
 
