@@ -691,7 +691,7 @@ HTML_PWA_TEMPLATE = r"""<!DOCTYPE html>
         <main>
             <div id="topic-bar" class="topic-bar" style="display:none;">
                 <span id="topic-bar-label">🔬 Vista: TFM i Ciència</span>
-                <button type="button" class="btn-clear-topic" onclick="selectTopic('all', '🌐 Tots els missatges')">✕ Mostra tot</button>
+                <button type="button" class="btn-clear-topic" onclick="selectChat('default', '🌐 Xat General (Tots)')">✕ Mostra tot</button>
             </div>
             <div class="chat-box" id="chat-messages"></div>
             <div id="thinking-indicator" class="thinking-badge" style="display:none;">
