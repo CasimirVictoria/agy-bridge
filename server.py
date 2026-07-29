@@ -427,14 +427,108 @@ HTML_PWA_TEMPLATE = r"""<!DOCTYPE html>
         }
         .spinner-dot:nth-child(1) { animation-delay: -0.32s; }
         .spinner-dot:nth-child(2) { animation-delay: -0.16s; }
-        @keyframes pulse-dot {
-            0%, 80%, 100% { transform: scale(0.3); opacity: 0.3; }
-            40% { transform: scale(1); opacity: 1; }
+        /* Side Drawer Styling */
+        .drawer-overlay {
+            position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
+            background: rgba(0,0,0,0.6); backdrop-filter: blur(3px);
+            z-index: 999; display: none; opacity: 0; transition: opacity 0.25s ease;
         }
+        .drawer-overlay.active { display: block; opacity: 1; }
+
+        .drawer {
+            position: fixed; top: 0; left: -300px; width: 270px; height: 100%;
+            background: #161b22; border-right: 1px solid var(--border);
+            z-index: 1000; transition: transform 0.28s cubic-bezier(0.4, 0, 0.2, 1);
+            display: flex; flex-direction: column; padding: 20px 16px;
+            box-shadow: 6px 0 25px rgba(0,0,0,0.6); transform: translateX(0);
+        }
+        .drawer.active { transform: translateX(300px); }
+
+        .drawer-header {
+            display: flex; align-items: center; justify-content: space-between;
+            padding-bottom: 16px; border-bottom: 1px solid var(--border); margin-bottom: 16px;
+        }
+        .drawer-title { font-size: 1.05rem; font-weight: 700; color: var(--primary); display: flex; align-items: center; gap: 8px; }
+        .btn-close-drawer { background: none; border: none; color: var(--text-muted); font-size: 1.2rem; cursor: pointer; padding: 4px; }
+
+        .session-card {
+            background: rgba(56, 189, 248, 0.06); border: 1px solid rgba(56, 189, 248, 0.2);
+            border-radius: 12px; padding: 12px; margin-bottom: 20px;
+        }
+        .session-item { display: flex; align-items: center; justify-content: space-between; font-size: 0.82rem; margin-bottom: 6px; color: var(--text-muted); }
+        .session-item:last-child { margin-bottom: 0; }
+        .session-val { font-weight: 600; color: var(--text); }
+
+        .drawer-section-title { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 1px; color: var(--text-muted); margin-bottom: 10px; font-weight: 700; }
+
+        .drawer-menu { display: flex; flex-direction: column; gap: 6px; }
+        .drawer-item {
+            display: flex; align-items: center; gap: 12px; padding: 12px 14px;
+            border-radius: 10px; color: var(--text); font-size: 0.88rem; font-weight: 500;
+            cursor: pointer; transition: background 0.15s; background: rgba(255,255,255,0.02);
+        }
+        .drawer-item:hover, .drawer-item:active { background: rgba(56, 189, 248, 0.15); color: var(--primary); }
+
+        .btn-hamburger {
+            position: fixed; top: 10px; left: 10px; z-index: 99;
+            background: rgba(22, 27, 34, 0.88); border: 1px solid var(--border);
+            color: var(--text); border-radius: 10px; padding: 6px 12px; font-size: 1.1rem;
+            cursor: pointer; backdrop-filter: blur(8px); box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+            transition: background 0.2s, transform 0.1s;
+        }
+        .btn-hamburger:active { transform: scale(0.95); }
 
     </style>
 </head>
 <body>
+    <button type="button" class="btn-hamburger" onclick="toggleDrawer()" title="Obrir menú de la sessió">☰</button>
+
+    <div id="drawer-overlay" class="drawer-overlay" onclick="closeDrawer()"></div>
+
+    <div id="drawer" class="drawer">
+        <div class="drawer-header">
+            <div class="drawer-title">🧠 Sovereign Hub</div>
+            <button type="button" class="btn-close-drawer" onclick="closeDrawer()">✕</button>
+        </div>
+
+        <div class="session-card">
+            <div class="session-item">
+                <span>Sessió Tmux</span>
+                <span class="session-val" style="color:var(--primary);">tfm:0.0</span>
+            </div>
+            <div class="session-item">
+                <span>Estat Daemon</span>
+                <span class="session-val" style="color:#4ade80;">● Active</span>
+            </div>
+            <div class="session-item">
+                <span>Model AI</span>
+                <span class="session-val">Gemini 3.6</span>
+            </div>
+        </div>
+
+        <div class="drawer-section-title">Accions Ràpides</div>
+        <div class="drawer-menu">
+            <div class="drawer-item" onclick="clearScreenUI()">
+                <span>🗑️</span> Netejar Pantalla Local
+            </div>
+            <div class="drawer-item" onclick="triggerQuickAction('Resum de correus')">
+                <span>📧</span> Resum de Correus
+            </div>
+            <div class="drawer-item" onclick="triggerQuickAction('Mostra les tasques de tasks.org')">
+                <span>📝</span> Tasques Org-Mode
+            </div>
+            <div class="drawer-item" onclick="triggerQuickAction('Ofertes d Oli AOVE en els supermercats')">
+                <span>🛢️</span> Ofertes Oli AOVE
+            </div>
+            <div class="drawer-item" onclick="triggerQuickAction('Estat del servidor casalap (RAM, disc, CPU)')">
+                <span>📊</span> Estat del Servidor
+            </div>
+            <div class="drawer-item" onclick="syncChatUI()">
+                <span>🔄</span> Re-sincronitzar Xat
+            </div>
+        </div>
+    </div>
+
     <div class="app-container">
         <main>
             <div class="chat-box" id="chat-messages"></div>
@@ -597,6 +691,42 @@ HTML_PWA_TEMPLATE = r"""<!DOCTYPE html>
                     appendMsg(m.sender.includes('Tu') ? 'user' : 'bot', m.sender, m.text, m.timestamp);
                 });
             } catch(e) { console.error(e); }
+        }
+
+        // --- Side Drawer Functions ---
+        function toggleDrawer() {
+            const drawer = document.getElementById('drawer');
+            const overlay = document.getElementById('drawer-overlay');
+            if (drawer && overlay) {
+                drawer.classList.toggle('active');
+                overlay.classList.toggle('active');
+            }
+        }
+
+        function closeDrawer() {
+            const drawer = document.getElementById('drawer');
+            const overlay = document.getElementById('drawer-overlay');
+            if (drawer && overlay) {
+                drawer.classList.remove('active');
+                overlay.classList.remove('active');
+            }
+        }
+
+        function clearScreenUI() {
+            closeDrawer();
+            const box = document.getElementById('chat-messages');
+            if (box) box.innerHTML = '';
+        }
+
+        function syncChatUI() {
+            closeDrawer();
+            loadInitialChat();
+        }
+
+        function triggerQuickAction(txt) {
+            closeDrawer();
+            document.getElementById('chat-input').value = txt;
+            sendChat();
         }
 
         function initWS() {
