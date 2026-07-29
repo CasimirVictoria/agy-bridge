@@ -729,7 +729,7 @@ HTML_PWA_TEMPLATE = r"""<!DOCTYPE html>
             const msgs = document.querySelectorAll('.msg');
             msgs.forEach(div => {
                 const t = div.dataset.topic || 'all';
-                if (topicId === 'all' || t === topicId || t === 'all') {
+                if (topicId === 'all' || t === topicId) {
                     div.style.display = 'block';
                 } else {
                     div.style.display = 'none';
@@ -765,7 +765,7 @@ HTML_PWA_TEMPLATE = r"""<!DOCTYPE html>
             div.dataset.topic = msgTopic;
 
             // Hide if not matching current active topic filter
-            if (currentTopic !== 'all' && msgTopic !== 'all' && msgTopic !== currentTopic) {
+            if (currentTopic !== 'all' && msgTopic !== currentTopic) {
                 div.style.display = 'none';
             } else {
                 div.style.display = 'block';
