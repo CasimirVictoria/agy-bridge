@@ -36,30 +36,37 @@ app.add_middleware(
 CONV_FILE = "/home/casimir/.gemini/antigravity-cli/bridge/conversations.json"
 UPLOAD_DIR = "/home/casimir/.gemini/antigravity-cli/brain/52a230fd-4cc6-4e23-9da2-545421935271/.user_uploaded"
 
+DEFAULT_CHATS = {
+    "default": "🌐 Xat General (Tots)",
+    "salut": "🩺 Salut i Suplements",
+    "tfm": "🔬 TFM i Ciència",
+    "gestio": "📧 Gestions i Correus"
+}
+
 def load_conversations() -> dict:
+    data = {"active_id": "default", "chats": {}}
     if os.path.exists(CONV_FILE):
         try:
             with open(CONV_FILE, "r", encoding="utf-8") as f:
-                return json.load(f)
+                data = json.load(f)
         except Exception as e:
             print(f"Error loading conversations: {e}")
-    return {
-        "active_id": "default",
-        "chats": {
-            "default": {
-                "id": "default",
-                "title": "Xat Principal",
+            
+    if "chats" not in data or not isinstance(data["chats"], dict):
+        data["chats"] = {}
+    if "active_id" not in data:
+        data["active_id"] = "default"
+
+    # Ensure all default thematic chats exist
+    for cid, ctitle in DEFAULT_CHATS.items():
+        if cid not in data["chats"]:
+            data["chats"][cid] = {
+                "id": cid,
+                "title": ctitle,
                 "created_at": datetime.now().strftime("%d/%m %H:%M"),
-                "messages": [
-                    {
-                        "sender": "⚡ Antigravity AI",
-                        "text": "¡Hola Casimir! Soc el teu Antigravity Master Hub. Connectat en temps real des del teu ordinador casalap. Com et puc ajudar?",
-                        "timestamp": datetime.now().strftime("%H:%M")
-                    }
-                ]
+                "messages": []
             }
-        }
-    }
+    return data
 
 def save_conversations(data: dict):
     try:
@@ -275,11 +282,18 @@ class SelectChatRequest(BaseModel):
 @app.post("/api/conversations/select")
 def select_chat_api(req: SelectChatRequest):
     convs = load_conversations()
-    if req.chat_id in convs["chats"]:
-        convs["active_id"] = req.chat_id
-        save_conversations(convs)
-        return {"status": "ok", "active_id": req.chat_id}
-    raise HTTPException(status_code=404, detail="Chat ID no trobat")
+    cid = req.chat_id
+    if cid not in convs["chats"]:
+        title = DEFAULT_CHATS.get(cid, f"📌 {cid}")
+        convs["chats"][cid] = {
+            "id": cid,
+            "title": title,
+            "created_at": datetime.now().strftime("%d/%m %H:%M"),
+            "messages": []
+        }
+    convs["active_id"] = cid
+    save_conversations(convs)
+    return {"status": "ok", "active_id": cid}
 
 class ClearChatRequest(BaseModel):
     chat_id: str
