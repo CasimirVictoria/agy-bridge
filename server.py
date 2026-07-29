@@ -1068,20 +1068,22 @@ HTML_PWA_TEMPLATE = r"""<!DOCTYPE html>
         }
 
         function checkForInteractiveQuestion(txt) {
-            // Auto-detect structured question blocks or explicit user options
             if (!txt) return;
+            
+            const lines = txt.split('\n').map(l => l.trim()).filter(l => l.length > 0);
+            const questionLines = lines.filter(l => l.includes('?'));
+            
             let options = [];
-            let questionText = '';
-
-            // Extract explicit options if marked with bullets, numbers or option patterns
-            const lines = txt.split('\n');
-            const optLines = lines.filter(l => l.trim().match(/^[0-9]\.|\* |\- |\[ \]|\( \)/));
-            if (txt.includes('?') && optLines.length >= 2 && optLines.length <= 6) {
-                questionText = txt.split('\n')[0] || txt.substring(0, 150);
-                options = optLines.map(l => l.replace(/^[0-9]\.|\* |\- |\[ \]|\( \)/, '').trim()).filter(l => l.length < 80);
-                if (options.length >= 2) {
-                    showQuestionModal({ question: txt, options: options });
+            lines.forEach(l => {
+                const match = l.match(/^(?:[0-9]+[\.\)]|\*|\-|\•)\s+(.+)/);
+                if (match && match[1] && match[1].length < 100) {
+                    options.push(match[1].trim());
                 }
+            });
+
+            // Trigger modal if text contains a question mark
+            if (questionLines.length > 0) {
+                showQuestionModal({ question: txt, options: options });
             }
         }
 
