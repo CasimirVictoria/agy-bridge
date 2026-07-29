@@ -478,6 +478,26 @@ HTML_PWA_TEMPLATE = r"""<!DOCTYPE html>
         }
         .btn-hamburger:active { transform: scale(0.95); }
 
+        /* Topic Filter Bar */
+        .topic-bar {
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 8px 14px; background: rgba(56, 189, 248, 0.12);
+            border: 1px solid rgba(56, 189, 248, 0.3); border-radius: 10px;
+            margin-bottom: 12px; font-size: 0.85rem; font-weight: 600; color: var(--primary);
+            backdrop-filter: blur(8px); animation: fadeIn 0.2s ease-out;
+        }
+        .btn-clear-topic {
+            background: none; border: none; color: var(--text-muted); font-size: 0.8rem;
+            cursor: pointer; padding: 2px 6px; border-radius: 6px; font-weight: 600;
+        }
+        .btn-clear-topic:hover { background: rgba(239, 68, 68, 0.2); color: #ef4444; }
+
+        .drawer-item.active-topic {
+            background: rgba(56, 189, 248, 0.2) !important;
+            color: var(--primary) !important;
+            border-left: 3px solid var(--primary);
+        }
+
     </style>
 </head>
 <body>
@@ -506,6 +526,25 @@ HTML_PWA_TEMPLATE = r"""<!DOCTYPE html>
             </div>
         </div>
 
+        <div class="drawer-section-title">💬 Converses i Temes</div>
+        <div class="drawer-menu" id="drawer-topics-list" style="margin-bottom: 20px;">
+            <div class="drawer-item active-topic" id="topic-item-all" onclick="selectTopic('all', '🌐 Tots els missatges')">
+                <span>🌐</span> Tots els missatges
+            </div>
+            <div class="drawer-item" id="topic-item-tfm" onclick="selectTopic('tfm', '🔬 TFM i Ciència')">
+                <span>🔬</span> TFM i Ciència
+            </div>
+            <div class="drawer-item" id="topic-item-salut" onclick="selectTopic('salut', '🩺 Salut i Suplements')">
+                <span>🩺</span> Salut i Suplements
+            </div>
+            <div class="drawer-item" id="topic-item-gestio" onclick="selectTopic('gestio', '📧 Gestions i Correus')">
+                <span>📧</span> Gestions i Correus
+            </div>
+            <div class="drawer-item" onclick="promptNewTopic()">
+                <span>➕</span> Nova Vista Temàtica...
+            </div>
+        </div>
+
         <div class="drawer-section-title">Accions Ràpides</div>
         <div class="drawer-menu">
             <div class="drawer-item" onclick="clearScreenUI()">
@@ -528,6 +567,10 @@ HTML_PWA_TEMPLATE = r"""<!DOCTYPE html>
 
     <div class="app-container">
         <main>
+            <div id="topic-bar" class="topic-bar" style="display:none;">
+                <span id="topic-bar-label">🔬 Vista: TFM i Ciència</span>
+                <button type="button" class="btn-clear-topic" onclick="selectTopic('all', '🌐 Tots els missatges')">✕ Mostra tot</button>
+            </div>
             <div class="chat-box" id="chat-messages"></div>
             <div id="thinking-indicator" class="thinking-badge" style="display:none;">
                 <span class="spinner-dot"></span>
@@ -662,11 +705,70 @@ HTML_PWA_TEMPLATE = r"""<!DOCTYPE html>
             }
         }
 
-        function appendMsg(cls, sender, txt, timeStr) {
+        let currentTopic = 'all';
+
+        function selectTopic(topicId, label) {
+            currentTopic = topicId;
+            closeDrawer();
+
+            const bar = document.getElementById('topic-bar');
+            const barLabel = document.getElementById('topic-bar-label');
+            if (topicId === 'all') {
+                if (bar) bar.style.display = 'none';
+            } else {
+                if (bar) bar.style.display = 'flex';
+                if (barLabel) barLabel.innerHTML = label || `💬 Vista: ${topicId}`;
+            }
+
+            // Highlight active drawer item
+            document.querySelectorAll('#drawer-topics-list .drawer-item').forEach(el => el.classList.remove('active-topic'));
+            const activeEl = document.getElementById(`topic-item-${topicId}`);
+            if (activeEl) activeEl.classList.add('active-topic');
+
+            // Filter all messages
+            const msgs = document.querySelectorAll('.msg');
+            msgs.forEach(div => {
+                const t = div.dataset.topic || 'all';
+                if (topicId === 'all' || t === topicId || t === 'all') {
+                    div.style.display = 'flex';
+                } else {
+                    div.style.display = 'none';
+                }
+            });
+
+            const box = document.getElementById('chat-messages');
+            if (box) box.scrollTop = box.scrollHeight;
+        }
+
+        function promptNewTopic() {
+            const name = prompt("Nom de la nova vista temàtica (p. ex. Física, Receptes, Viatges):");
+            if (!name) return;
+            const topicId = name.toLowerCase().replace(/[^a-z0-9]/g, '_');
+            const list = document.getElementById('drawer-topics-list');
+            if (list) {
+                const newItem = document.createElement('div');
+                newItem.className = 'drawer-item';
+                newItem.id = `topic-item-${topicId}`;
+                newItem.onclick = () => selectTopic(topicId, `📌 ${name}`);
+                newItem.innerHTML = `<span>📌</span> ${name}`;
+                list.insertBefore(newItem, list.lastElementChild);
+            }
+            selectTopic(topicId, `📌 ${name}`);
+        }
+
+        function appendMsg(cls, sender, txt, timeStr, topicId) {
             const box = document.getElementById('chat-messages');
             if (!box) return;
             const div = document.createElement('div');
+            const msgTopic = topicId || (cls === 'user' ? currentTopic : 'all');
             div.className = `msg ${cls}`;
+            div.dataset.topic = msgTopic;
+
+            // Hide if not matching current active topic filter
+            if (currentTopic !== 'all' && msgTopic !== 'all' && msgTopic !== currentTopic) {
+                div.style.display = 'none';
+            }
+
             let html = renderMarkdownWithMath(sender, txt);
             if (cls === 'user') {
                 const now = timeStr || new Date().toLocaleString('ca-ES', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit' });
@@ -685,7 +787,7 @@ HTML_PWA_TEMPLATE = r"""<!DOCTYPE html>
                 const box = document.getElementById('chat-messages');
                 box.innerHTML = '';
                 (chat.messages || []).forEach(m => {
-                    appendMsg(m.sender.includes('Tu') ? 'user' : 'bot', m.sender, m.text, m.timestamp);
+                    appendMsg(m.sender.includes('Tu') ? 'user' : 'bot', m.sender, m.text, m.timestamp, m.topic || 'all');
                 });
             } catch(e) { console.error(e); }
         }
