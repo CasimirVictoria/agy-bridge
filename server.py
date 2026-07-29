@@ -111,117 +111,37 @@ def get_latest_ai_response_from_transcript() -> Optional[str]:
     return None
 
 async def process_ai_response(prompt: str):
-    """Wait for tmux to finish generating, then read raw Markdown from transcript.jsonl."""
+    """Send prompt to tmux session and set status to thinking."""
     try:
         await manager.broadcast({"type": "ai_status", "status": "thinking"})
 
-        # 1. Escape special shell characters and send to tmux pane
+        # Escape special shell characters and send to tmux pane
         safe_prompt = prompt.replace('\\', '\\\\').replace('"', '\\"').replace('$', '\\$').replace('`', '\\`')
         cmd = f'tmux send-keys -t tfm:0.0 "{safe_prompt}" Enter'
         proc = await asyncio.create_subprocess_shell(
             cmd, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE
         )
         await proc.communicate()
-
-        await asyncio.sleep(1.5)
-        interactive_notified = False
-
-        # 2. Poll tmux pane to check when AGY finishes
-        for attempt in range(600):  # Poll up to 5 minutes
-            await asyncio.sleep(0.5)
-
-            out_proc = await asyncio.create_subprocess_shell(
-                "tmux capture-pane -t tfm:0.0 -p -S -500",
-                stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE
-            )
-            stdout, _ = await out_proc.communicate()
-            pane = stdout.decode('utf-8', errors='ignore')
-
-            lines = [l.strip() for l in pane.split('\n') if l.strip()]
-            if not lines:
-                continue
-
-            # Check if AGY is currently generating (spinners or 'esc to cancel' in bottom 5 lines)
-            tail_lines = [l for l in lines if l and "esc to cancel" not in l][-5:]
-            tail_text = '\n'.join(tail_lines)
-            
-            is_busy = "Generating..." in pane or "Waiting..." in tail_text
-            if not is_busy:
-                for char in tail_text:
-                    if '\u2800' <= char <= '\u28ff':
-                        is_busy = True
-                        break
-
-            # Interactive prompt notification
-            if ("Do you want to proceed?" in pane or "Requesting permission" in pane):
-                if not interactive_notified:
-                    interactive_notified = True
-                    await manager.broadcast({
-                        "type": "chat_message",
-                        "sender": "⚡ Antigravity AI",
-                        "text": "ℹ️ *S'espera la teua resposta o confirmació a la consola / terminal.*",
-                        "timestamp": datetime.now().strftime("%H:%M")
-                    })
-
-            if is_busy:
-                continue  # AGY is still generating
-
-            # Check if bare prompt '>' exists near bottom
-            bare_prompt_exists = any(lines[idx] in (">", "> ") for idx in range(len(lines) - 1, max(-1, len(lines) - 10), -1))
-            if not bare_prompt_exists:
-                continue
-
-            # 3. Read raw untouched Markdown response directly from transcript.jsonl
-            candidate = get_latest_ai_response_from_transcript()
-            if not candidate:
-                continue
-
-            # Send final clean raw markdown response
-            await manager.broadcast({"type": "ai_status", "status": "idle"})
-            await manager.broadcast({
-                "type": "chat_message",
-                "sender": "⚡ Antigravity AI",
-                "text": candidate,
-                "timestamp": datetime.now().strftime("%d/%m/%Y %H:%M:%S")
-            })
-
-            # Save to conversations file
-            convs = load_conversations()
-            act_id = convs.get("active_id", "default")
-            if act_id in convs["chats"]:
-                # Prevent duplicates
-                msgs = convs["chats"][act_id]["messages"]
-                if not msgs or msgs[-1].get("text") != candidate:
-                    msgs.append({
-                        "sender": "⚡ Antigravity AI",
-                        "text": candidate,
-                        "timestamp": datetime.now().strftime("%d/%m/%Y %H:%M:%S")
-                    })
-                    save_conversations(convs)
-            break
-
-        await manager.broadcast({"type": "ai_status", "status": "idle"})
-
     except Exception as e:
-        print(f"Error processing AI response: {e}")
+        print(f"Error sending prompt to tmux: {e}")
         await manager.broadcast({"type": "ai_status", "status": "idle"})
 
 last_broadcast_content = ""
 
 async def watch_transcript_loop():
-    """Background task: Continuously sync any new response from transcript.jsonl (even if typed in tmux)."""
+    """Background task: Single Source of Truth for broadcasting AI responses from transcript.jsonl."""
     global last_broadcast_content
     while True:
         try:
             await asyncio.sleep(1.0)
             candidate = get_latest_ai_response_from_transcript()
             if candidate and candidate != last_broadcast_content:
+                last_broadcast_content = candidate
                 convs = load_conversations()
                 act_id = convs.get("active_id", "default")
                 if act_id in convs["chats"]:
                     msgs = convs["chats"][act_id]["messages"]
                     if not msgs or msgs[-1].get("text") != candidate:
-                        last_broadcast_content = candidate
                         ts_now = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
                         msgs.append({
                             "sender": "⚡ Antigravity AI",
