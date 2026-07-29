@@ -760,12 +760,17 @@ HTML_PWA_TEMPLATE = r"""<!DOCTYPE html>
             const box = document.getElementById('chat-messages');
             if (!box) return;
             const div = document.createElement('div');
-            const msgTopic = topicId || (cls === 'user' ? currentTopic : 'all');
+            
+            // Assign topicId or default to current active topic
+            let msgTopic = topicId;
+            if (!msgTopic || msgTopic === 'all') {
+                msgTopic = currentTopic;
+            }
             div.className = `msg ${cls}`;
             div.dataset.topic = msgTopic;
 
-            // Hide if not matching current active topic filter
-            if (currentTopic !== 'all' && msgTopic !== currentTopic) {
+            // Display if matching current topic or viewing all
+            if (currentTopic !== 'all' && msgTopic !== 'all' && msgTopic !== currentTopic) {
                 div.style.display = 'none';
             } else {
                 div.style.display = 'block';
