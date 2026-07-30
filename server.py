@@ -940,14 +940,46 @@ HTML_PWA_TEMPLATE = r"""<!DOCTYPE html>
                 btn.style.background = isTTSEnabled ? 'rgba(56,189,248,0.25)' : 'rgba(22,27,34,0.75)';
                 btn.style.borderColor = isTTSEnabled ? 'var(--primary)' : 'var(--border)';
             }
-            if (!isTTSEnabled && typeof window.speechSynthesis !== 'undefined') {
+            if (isTTSEnabled && typeof window.speechSynthesis !== 'undefined') {
+                loadVoices();
+                try {
+                    if (window.speechSynthesis.paused) window.speechSynthesis.resume();
+                } catch(e) {}
+                const testUtt = new SpeechSynthesisUtterance("Veu activada");
+                testUtt.lang = 'ca-ES';
+                testUtt.volume = 1.0;
+                window.speechSynthesis.speak(testUtt);
+            } else if (!isTTSEnabled && typeof window.speechSynthesis !== 'undefined') {
                 window.speechSynthesis.cancel();
             }
         }
 
+        let availableVoices = [];
+
+        function loadVoices() {
+            if (typeof window.speechSynthesis !== 'undefined') {
+                availableVoices = window.speechSynthesis.getVoices() || [];
+            }
+        }
+        if (typeof window.speechSynthesis !== 'undefined') {
+            loadVoices();
+            if (window.speechSynthesis.onvoiceschanged !== undefined) {
+                window.speechSynthesis.onvoiceschanged = loadVoices;
+            }
+        }
+
         function speakText(text) {
-            if (typeof window.speechSynthesis === 'undefined') return;
-            window.speechSynthesis.cancel();
+            if (typeof window.speechSynthesis === 'undefined') {
+                alert("El navegador no té habilitada la síntesi de veu.");
+                return;
+            }
+
+            try {
+                window.speechSynthesis.cancel();
+                if (window.speechSynthesis.paused) {
+                    window.speechSynthesis.resume();
+                }
+            } catch(e) {}
             
             let clean = (text || '')
                 .replace(/```[\s\S]*?```/g, ' Codi en pantalla. ')
@@ -964,21 +996,26 @@ HTML_PWA_TEMPLATE = r"""<!DOCTYPE html>
             if (!clean.trim()) return;
 
             const utterance = new SpeechSynthesisUtterance(clean);
-            utterance.rate = 1.05;
+            utterance.rate = 1.0;
             utterance.pitch = 1.0;
+            utterance.lang = 'ca-ES';
 
-            const voices = window.speechSynthesis.getVoices();
-            let caVoice = voices.find(v => (v.lang || '').startsWith('ca'));
-            let esVoice = voices.find(v => (v.lang || '').startsWith('es'));
+            let voices = availableVoices.length > 0 ? availableVoices : (window.speechSynthesis.getVoices() || []);
+            let caVoice = voices.find(v => (v.lang || '').toLowerCase().startsWith('ca'));
+            let esVoice = voices.find(v => (v.lang || '').toLowerCase().startsWith('es'));
             
             if (caVoice) {
                 utterance.voice = caVoice;
-                utterance.lang = 'ca-ES';
+                utterance.lang = caVoice.lang || 'ca-ES';
             } else if (esVoice) {
                 utterance.voice = esVoice;
-                utterance.lang = 'es-ES';
+                utterance.lang = esVoice.lang || 'es-ES';
             }
-            
+
+            utterance.onerror = (e) => {
+                console.error("Speech error:", e);
+            };
+
             window.speechSynthesis.speak(utterance);
         }
 
