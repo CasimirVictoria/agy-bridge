@@ -635,10 +635,7 @@ HTML_PWA_TEMPLATE = r"""<!DOCTYPE html>
     </style>
 </head>
 <body>
-    <div style="position:fixed; top:12px; left:12px; z-index:900; display:flex; gap:8px;">
-        <button type="button" class="btn-hamburger" style="position:static;" onclick="toggleDrawer()" title="Obrir menú de la sessió">☰</button>
-        <button type="button" id="btn-tts-toggle" class="btn-hamburger" style="position:static; background:rgba(22,27,34,0.75); border:1px solid var(--border); font-size:1.1rem; width:38px; height:38px; border-radius:10px; display:flex; align-items:center; justify-content:center;" onclick="toggleTTS()" title="Activar/Desactivar lectura automàtica per veu">🔇</button>
-    </div>
+    <button type="button" class="btn-hamburger" onclick="toggleDrawer()" title="Obrir menú de la sessió">☰</button>
 
     <div id="drawer-overlay" class="drawer-overlay" onclick="closeDrawer()"></div>
 
@@ -930,95 +927,6 @@ HTML_PWA_TEMPLATE = r"""<!DOCTYPE html>
             } catch(e) { console.error(e); }
         }
 
-        let isTTSEnabled = false;
-
-        function toggleTTS() {
-            isTTSEnabled = !isTTSEnabled;
-            const btn = document.getElementById('btn-tts-toggle');
-            if (btn) {
-                btn.innerHTML = isTTSEnabled ? '🔊' : '🔇';
-                btn.style.background = isTTSEnabled ? 'rgba(56,189,248,0.25)' : 'rgba(22,27,34,0.75)';
-                btn.style.borderColor = isTTSEnabled ? 'var(--primary)' : 'var(--border)';
-            }
-            if (isTTSEnabled && typeof window.speechSynthesis !== 'undefined') {
-                loadVoices();
-                try {
-                    if (window.speechSynthesis.paused) window.speechSynthesis.resume();
-                } catch(e) {}
-                const testUtt = new SpeechSynthesisUtterance("Veu activada");
-                testUtt.lang = 'ca-ES';
-                testUtt.volume = 1.0;
-                window.speechSynthesis.speak(testUtt);
-            } else if (!isTTSEnabled && typeof window.speechSynthesis !== 'undefined') {
-                window.speechSynthesis.cancel();
-            }
-        }
-
-        let availableVoices = [];
-
-        function loadVoices() {
-            if (typeof window.speechSynthesis !== 'undefined') {
-                availableVoices = window.speechSynthesis.getVoices() || [];
-            }
-        }
-        if (typeof window.speechSynthesis !== 'undefined') {
-            loadVoices();
-            if (window.speechSynthesis.onvoiceschanged !== undefined) {
-                window.speechSynthesis.onvoiceschanged = loadVoices;
-            }
-        }
-
-        function speakText(text) {
-            if (typeof window.speechSynthesis === 'undefined') {
-                alert("🔒 Connexió No Segura (HTTP): Els navegadors bloquegen la veu i el micròfon en adreces http://. Accedeix per HTTPS (https://100.80.29.31:8000) o afegeix l'origen a chrome://flags/#unsafely-treat-insecure-origin-as-secure");
-                return;
-            }
-
-            try {
-                window.speechSynthesis.cancel();
-                if (window.speechSynthesis.paused) {
-                    window.speechSynthesis.resume();
-                }
-            } catch(e) {}
-            
-            let clean = (text || '')
-                .replace(/```[\s\S]*?```/g, ' Codi en pantalla. ')
-                .replace(/`([^`]+)`/g, '$1')
-                .replace(/!\[([^\]]*)\]\([^)]+\)/g, '')
-                .replace(/<[^>]+>/g, '')
-                .replace(/\\\[[\s\S]*?\\\]/g, ' Fòrmula matemàtica en pantalla. ')
-                .replace(/\\\([\s\S]*?\\\)/g, ' Fòrmula. ')
-                .replace(/\$\$[\s\S]*?\$\$/g, ' Fòrmula. ')
-                .replace(/\$([^\$\n]+)\$/g, '$1')
-                .replace(/[*#_~]/g, '')
-                .replace(/https?:\/\/\S+/g, ' enllaç ');
-                
-            if (!clean.trim()) return;
-
-            const utterance = new SpeechSynthesisUtterance(clean);
-            utterance.rate = 1.0;
-            utterance.pitch = 1.0;
-            utterance.lang = 'ca-ES';
-
-            let voices = availableVoices.length > 0 ? availableVoices : (window.speechSynthesis.getVoices() || []);
-            let caVoice = voices.find(v => (v.lang || '').toLowerCase().startsWith('ca'));
-            let esVoice = voices.find(v => (v.lang || '').toLowerCase().startsWith('es'));
-            
-            if (caVoice) {
-                utterance.voice = caVoice;
-                utterance.lang = caVoice.lang || 'ca-ES';
-            } else if (esVoice) {
-                utterance.voice = esVoice;
-                utterance.lang = esVoice.lang || 'es-ES';
-            }
-
-            utterance.onerror = (e) => {
-                console.error("Speech error:", e);
-            };
-
-            window.speechSynthesis.speak(utterance);
-        }
-
         function appendMsg(cls, sender, txt, timeStr) {
             const box = document.getElementById('chat-messages');
             if (!box) return;
@@ -1028,13 +936,6 @@ HTML_PWA_TEMPLATE = r"""<!DOCTYPE html>
             if (cls === 'user') {
                 const now = timeStr || new Date().toLocaleString('ca-ES', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit' });
                 html += `<div style="text-align:right; font-size:0.68rem; opacity:0.5; margin-top:6px; font-weight:400; letter-spacing:0.2px;">${now}</div>`;
-            } else if (cls === 'bot') {
-                const escapedTxt = (txt || '').replace(/"/g, '&quot;').replace(/'/g, "\\'");
-                html += `<div style="display:flex; justify-content:flex-end; align-items:center; margin-top:10px; border-top:1px solid rgba(255,255,255,0.06); padding-top:6px;">
-                    <button type="button" onclick="speakText('${escapedTxt}')" style="background:rgba(56,189,248,0.1); border:1px solid rgba(56,189,248,0.25); color:var(--primary); padding:3px 10px; border-radius:6px; font-size:0.75rem; cursor:pointer; font-weight:600; display:flex; align-items:center; gap:4px;">
-                        🔊 Escolta
-                    </button>
-                </div>`;
             }
             div.innerHTML = html;
             enhanceCodeBlocks(div);
@@ -1186,9 +1087,6 @@ HTML_PWA_TEMPLATE = r"""<!DOCTYPE html>
                     if (!data.sender.includes('Tu')) {
                         if (activeChatId === 'default' || data.chat_id === activeChatId || !data.chat_id) {
                             appendMsg('bot', data.sender, data.text, data.timestamp);
-                            if (isTTSEnabled) {
-                                speakText(data.text);
-                            }
                         }
                     }
                 }
@@ -1501,29 +1399,4 @@ HTML_PWA_TEMPLATE = r"""<!DOCTYPE html>
 """
 
 if __name__ == "__main__":
-    import threading
-    base_dir = os.path.dirname(os.path.abspath(__file__))
-    cert_file = os.path.join(base_dir, "certs", "cert.pem")
-    key_file = os.path.join(base_dir, "certs", "key.pem")
-    
-    if os.path.exists(cert_file) and os.path.exists(key_file):
-        def run_http():
-            uvicorn.run(app, host="0.0.0.0", port=8000)
-
-        def run_https():
-            uvicorn.run(app, host="0.0.0.0", port=8443, ssl_certfile=cert_file, ssl_keyfile=key_file)
-
-        t_http = threading.Thread(target=run_http, daemon=True)
-        t_https = threading.Thread(target=run_https, daemon=True)
-        
-        t_http.start()
-        t_https.start()
-        
-        print(f"🌐 HTTP Server active on http://0.0.0.0:8000")
-        print(f"🔒 HTTPS Server active on https://0.0.0.0:8443")
-        
-        t_http.join()
-        t_https.join()
-    else:
-        print(f"🌐 HTTP Mode active on http://0.0.0.0:8000")
-        uvicorn.run(app, host="0.0.0.0", port=8000)
+    uvicorn.run(app, host="0.0.0.0", port=8000)
