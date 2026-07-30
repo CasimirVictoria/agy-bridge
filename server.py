@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 Antigravity Master Hub Bridge Server (server.py)
-Clean, lightweight FastAPI + WebSocket server capturing tmux tfm:0.0 session.
+Clean, lightweight FastAPI + WebSocket server capturing tmux brain:0.0 session.
 
 - Clean modern glassmorphism web UI (full width, no sidebars)
 - Robust response extraction algorithm from tmux pane
@@ -125,7 +125,7 @@ async def process_ai_response(prompt: str):
 
         # Escape special shell characters and send to tmux pane
         safe_prompt = prompt.replace('\\', '\\\\').replace('"', '\\"').replace('$', '\\$').replace('`', '\\`')
-        cmd = f'tmux send-keys -t tfm:0.0 "{safe_prompt}" Enter'
+        cmd = f'tmux send-keys -t brain:0.0 "{safe_prompt}" Enter'
         proc = await asyncio.create_subprocess_shell(
             cmd, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE
         )
@@ -207,7 +207,7 @@ def get_antigravity_status():
     """Retrieve runtime model quota, context size, and session status."""
     active_model = "Gemini 3.6 Flash (High)"
     try:
-        res = subprocess.run(["tmux", "capture-pane", "-pt", "tfm:0.0"], capture_output=True, text=True)
+        res = subprocess.run(["tmux", "capture-pane", "-pt", "brain:0.0"], capture_output=True, text=True)
         pane_lines = res.stdout.splitlines()
         for l in reversed(pane_lines):
             if any(m in l for m in ["Gemini", "Claude", "GPT", "Flash", "Pro", "Opus"]):

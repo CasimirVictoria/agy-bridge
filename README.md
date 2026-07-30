@@ -29,7 +29,7 @@ Having **Google Antigravity CLI (`agy`)** running continuously as a systemd back
 
 ## 📸 Visual Preview: Terminal Daemon vs. Web PWA Interface
 
-The **Google Antigravity CLI (`agy`)** runs continuously as a persistent `systemd` background service (`tmux-tfm.service`) inside a headless `tmux` terminal session. 
+The **Google Antigravity CLI (`agy`)** runs continuously as a persistent `systemd` background service (`agy-brain.service`) inside a headless `tmux` terminal session. 
 
 By layering **AGY-Bridge** on top of this background daemon, users gain a dramatic leap in **readability, ergonomics, and daily usability** without compromising terminal power:
 
@@ -104,13 +104,13 @@ pip install fastapi uvicorn websockets
 Copy the provided unit files to `~/.config/systemd/user/`:
 
 ```bash
-cp systemd/tmux-tfm.service ~/.config/systemd/user/
+cp systemd/agy-brain.service ~/.config/systemd/user/
 cp systemd/agy-bridge.service ~/.config/systemd/user/
-cp scripts/start-tfm-daemon ~/.local/bin/
-chmod +x ~/.local/bin/start-tfm-daemon
+cp scripts/start-brain-daemon ~/.local/bin/
+chmod +x ~/.local/bin/start-brain-daemon
 
 systemctl --user daemon-reload
-systemctl --user enable --now tmux-tfm.service agy-bridge.service
+systemctl --user enable --now agy-brain.service agy-bridge.service
 ```
 
 > 💡 **Note on Portable Home Paths:** All systemd unit files use systemd's `%h` specifier (which dynamically points to the active user's home directory `$HOME`) and shell scripts use `$HOME` / `~`. No hardcoded user paths exist in the repository, making `agy-bridge` 100% portable for deployment on any Linux system.

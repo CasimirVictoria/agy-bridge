@@ -1,6 +1,6 @@
 [Unit]
 Description=Antigravity CLI Web Bridge Daemon
-After=network.target tmux-tfm.service
+After=network.target agy-brain.service
 
 [Service]
 Type=simple
