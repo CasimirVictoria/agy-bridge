@@ -4,7 +4,7 @@ After=network.target
 
 [Service]
 Type=forking
-ExecStart=/home/casimir/.local/bin/start-tfm-daemon
+ExecStart=%h/.local/bin/start-tfm-daemon
 ExecStop=/usr/bin/tmux kill-session -t tfm
 Restart=on-failure
 

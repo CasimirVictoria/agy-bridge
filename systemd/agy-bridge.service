@@ -4,8 +4,8 @@ After=network.target tmux-tfm.service
 
 [Service]
 Type=simple
-WorkingDirectory=/home/casimir/.gemini/antigravity-cli/bridge
-ExecStart=/usr/bin/python3 /home/casimir/.gemini/antigravity-cli/bridge/server.py
+WorkingDirectory=%h/.gemini/antigravity-cli/bridge
+ExecStart=/usr/bin/python3 %h/.gemini/antigravity-cli/bridge/server.py
 Restart=always
 RestartSec=3
 

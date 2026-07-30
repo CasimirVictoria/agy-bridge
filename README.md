@@ -113,6 +113,8 @@ systemctl --user daemon-reload
 systemctl --user enable --now tmux-tfm.service agy-bridge.service
 ```
 
+> 💡 **Note on Portable Home Paths:** All systemd unit files use systemd's `%h` specifier (which dynamically points to the active user's home directory `$HOME`) and shell scripts use `$HOME` / `~`. No hardcoded user paths exist in the repository, making `agy-bridge` 100% portable for deployment on any Linux system.
+
 ---
 
 ## 📄 License

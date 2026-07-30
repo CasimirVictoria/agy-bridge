@@ -33,8 +33,9 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-CONV_FILE = "/home/casimir/.gemini/antigravity-cli/bridge/conversations.json"
-UPLOAD_DIR = "/home/casimir/.gemini/antigravity-cli/brain/52a230fd-4cc6-4e23-9da2-545421935271/.user_uploaded"
+USER_HOME = os.path.expanduser("~")
+CONV_FILE = os.path.join(USER_HOME, ".gemini/antigravity-cli/bridge/conversations.json")
+UPLOAD_DIR = os.path.join(USER_HOME, ".gemini/antigravity-cli/brain/52a230fd-4cc6-4e23-9da2-545421935271/.user_uploaded")
 
 DEFAULT_CHATS = {
     "default": "🌐 Xat General (Tots)",
@@ -97,7 +98,7 @@ class ConnectionManager:
 
 manager = ConnectionManager()
 
-TRANSCRIPT_PATH = "/home/casimir/.gemini/antigravity-cli/brain/52a230fd-4cc6-4e23-9da2-545421935271/.system_generated/logs/transcript.jsonl"
+TRANSCRIPT_PATH = os.path.join(USER_HOME, ".gemini/antigravity-cli/brain/52a230fd-4cc6-4e23-9da2-545421935271/.system_generated/logs/transcript.jsonl")
 
 def get_latest_ai_response_from_transcript() -> Optional[str]:
     """Extract raw markdown response directly from transcript log."""
@@ -313,7 +314,7 @@ class CreateChatRequest(BaseModel):
 
 @app.get("/api/media/{file_path:path}")
 def get_media_file_api(file_path: str):
-    base_brain = "/home/casimir/.gemini/antigravity-cli/brain"
+    base_brain = os.path.join(USER_HOME, ".gemini/antigravity-cli/brain")
     full_path = os.path.normpath(os.path.join(base_brain, file_path))
     if not full_path.startswith(base_brain):
         raise HTTPException(status_code=403, detail="Access denied")
