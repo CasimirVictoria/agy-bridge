@@ -970,7 +970,7 @@ HTML_PWA_TEMPLATE = r"""<!DOCTYPE html>
 
         function speakText(text) {
             if (typeof window.speechSynthesis === 'undefined') {
-                alert("El navegador no té habilitada la síntesi de veu.");
+                alert("🔒 Connexió No Segura (HTTP): Els navegadors bloquegen la veu i el micròfon en adreces http://. Accedeix per HTTPS (https://100.80.29.31:8000) o afegeix l'origen a chrome://flags/#unsafely-treat-insecure-origin-as-secure");
                 return;
             }
 
@@ -1501,4 +1501,13 @@ HTML_PWA_TEMPLATE = r"""<!DOCTYPE html>
 """
 
 if __name__ == "__main__":
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    base_dir = os.path.dirname(os.path.abspath(__file__))
+    cert_file = os.path.join(base_dir, "certs", "cert.pem")
+    key_file = os.path.join(base_dir, "certs", "key.pem")
+    
+    if os.path.exists(cert_file) and os.path.exists(key_file):
+        print(f"🔒 Encrypted HTTPS mode active with SSL certificates!")
+        uvicorn.run(app, host="0.0.0.0", port=8000, ssl_certfile=cert_file, ssl_keyfile=key_file)
+    else:
+        print(f"🌐 HTTP mode active (no SSL certs found).")
+        uvicorn.run(app, host="0.0.0.0", port=8000)
