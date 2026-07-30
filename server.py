@@ -314,17 +314,26 @@ class CreateChatRequest(BaseModel):
 
 @app.get("/api/media/{file_path:path}")
 def get_media_file_api(file_path: str):
-    base_brain = os.path.join(USER_HOME, ".gemini/antigravity-cli/brain")
-    full_path = os.path.normpath(os.path.join(base_brain, file_path))
-    if not full_path.startswith(base_brain):
+    # Support absolute paths starting with home or relative paths under USER_HOME
+    if file_path.startswith("home/") or file_path.startswith("/home/"):
+        full_path = file_path if file_path.startswith("/") else "/" + file_path
+    else:
+        full_path = os.path.normpath(os.path.join(USER_HOME, ".gemini/antigravity-cli/brain", file_path))
+    
+    if not full_path.startswith(USER_HOME):
         raise HTTPException(status_code=403, detail="Access denied")
-    if not os.path.exists(full_path):
-        # Try checking in active conversation folder
-        conv_path = os.path.join(base_brain, "52a230fd-4cc6-4e23-9da2-545421935271", file_path)
-        if os.path.exists(conv_path):
-            return FileResponse(conv_path)
-        raise HTTPException(status_code=404, detail="Media file not found")
-    return FileResponse(full_path)
+        
+    if os.path.exists(full_path) and os.path.isfile(full_path):
+        return FileResponse(full_path)
+
+    # Search recursively in brain directory for matching filename
+    filename = os.path.basename(file_path)
+    base_brain = os.path.join(USER_HOME, ".gemini/antigravity-cli/brain")
+    for root, dirs, files in os.walk(base_brain):
+        if filename in files:
+            return FileResponse(os.path.join(root, filename))
+
+    raise HTTPException(status_code=404, detail=f"Media file {file_path} not found")
 
 @app.post("/api/conversations/create")
 def create_chat_api(req: CreateChatRequest):
@@ -747,10 +756,10 @@ HTML_PWA_TEMPLATE = r"""<!DOCTYPE html>
             if (!txt) return '';
             let cleaned = txt.replace(/\[?Imatge enganxada:\s*\/[^\s\]]+\.png\]?/gi, '📷 *[Imatge]*');
             
-            // Convert file:///.../brain/.../image.png into working HTML <img> tags pointing to /api/media/
-            cleaned = cleaned.replace(/!\[([^\]]*)\]\((?:file:\/\/\/[^\s\)]*?brain\/)?([^\s\)]+)\)/gi, (match, alt, imgPath) => {
-                let filename = imgPath.split('/').pop();
-                return `<img src="/api/media/${filename}" alt="${alt || 'Imatge'}" style="max-width:100%; border-radius:12px; margin:12px 0; display:block; box-shadow:0 8px 25px rgba(0,0,0,0.5);" />`;
+            // Convert file:///... into working HTML <img> tags pointing to /api/media/
+            cleaned = cleaned.replace(/!\[([^\]]*)\]\((?:file:\/\/)?([^\s\)]+)\)/gi, (match, alt, imgPath) => {
+                let cleanPath = imgPath.replace(/^\/+/, '');
+                return `<img src="/api/media/${cleanPath}" alt="${alt || 'Imatge'}" style="max-width:100%; border-radius:12px; margin:12px 0; display:block; box-shadow:0 8px 25px rgba(0,0,0,0.5);" />`;
             });
             return cleaned;
         }
