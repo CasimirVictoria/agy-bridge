@@ -1,5 +1,12 @@
 # ⚡ AGY-Bridge: Sovereign AI Mobile Hub & Web Bridge
 
+> [!CAUTION]
+> **LEGAL DISCLAIMER & USER LIABILITY NOTICE**
+> 
+> This repository is published strictly for educational purposes, personal research, and demonstration of a personal workstation architecture. By deploying this software—especially when executing AI agents with unprompted autonomous execution flags (such as `--dangerously-skip-permissions`)—**the user assumes 100% full responsibility for any system damage, data loss, file deletion, security vulnerabilities, or unintended side effects.**
+> 
+> The author (Casimir Victòria) provides this open-source code "AS IS", without warranty of any kind, express or implied. In no event shall the author be held liable for any claim, damages, or other liability arising from, out of, or in connection with the software or the use of this repository.
+
 **AGY-Bridge** is a lightweight, high-performance web interface and daemon bridge that turns **Google Antigravity CLI (`agy`)** running inside a persistent Linux `tmux` session into a mobile-first, sovereign AI hub.
 
 It allows you to securely control your local workstation, run Python/SageMath code, audit emails, search academic literature, and access your Second Brain (Org-mode/Denote) from Android via **Hermit / Tailscale / Haven**.
