@@ -18,7 +18,7 @@ from typing import List, Optional
 from datetime import datetime, timedelta
 
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect, HTTPException, Request
-from fastapi.responses import HTMLResponse, JSONResponse
+from fastapi.responses import HTMLResponse, JSONResponse, FileResponse
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 import uvicorn
@@ -310,6 +310,20 @@ def clear_chat_api(req: ClearChatRequest):
 class CreateChatRequest(BaseModel):
     id: str
     title: str
+
+@app.get("/api/media/{file_path:path}")
+def get_media_file_api(file_path: str):
+    base_brain = "/home/casimir/.gemini/antigravity-cli/brain"
+    full_path = os.path.normpath(os.path.join(base_brain, file_path))
+    if not full_path.startswith(base_brain):
+        raise HTTPException(status_code=403, detail="Access denied")
+    if not os.path.exists(full_path):
+        # Try checking in active conversation folder
+        conv_path = os.path.join(base_brain, "52a230fd-4cc6-4e23-9da2-545421935271", file_path)
+        if os.path.exists(conv_path):
+            return FileResponse(conv_path)
+        raise HTTPException(status_code=404, detail="Media file not found")
+    return FileResponse(full_path)
 
 @app.post("/api/conversations/create")
 def create_chat_api(req: CreateChatRequest):
@@ -730,11 +744,14 @@ HTML_PWA_TEMPLATE = r"""<!DOCTYPE html>
 
         function cleanImagePaths(txt) {
             if (!txt) return '';
-            return txt.replace(/\[?Imatge enganxada:\s*\/[^\s\]]+\.png\]?/gi, '📷 *[Imatge]*')
-                      .replace(/[0-9a-f-]{20,}\/\.user_uploaded\/[^\s\]]+/gi, '')
-                      .replace(/\/home\/[^\s]+\/uploaded_media_[0-9]+\.png/gi, '')
-                      .replace(/uploaded_media_[0-9]+\.png/gi, '')
-                      .replace(/cli\/brain\/[^\s]+/gi, '');
+            let cleaned = txt.replace(/\[?Imatge enganxada:\s*\/[^\s\]]+\.png\]?/gi, '📷 *[Imatge]*');
+            
+            // Convert file:///.../brain/.../image.png into working HTML <img> tags pointing to /api/media/
+            cleaned = cleaned.replace(/!\[([^\]]*)\]\((?:file:\/\/\/[^\s\)]*?brain\/)?([^\s\)]+)\)/gi, (match, alt, imgPath) => {
+                let filename = imgPath.split('/').pop();
+                return `<img src="/api/media/${filename}" alt="${alt || 'Imatge'}" style="max-width:100%; border-radius:12px; margin:12px 0; display:block; box-shadow:0 8px 25px rgba(0,0,0,0.5);" />`;
+            });
+            return cleaned;
         }
 
         function renderMarkdownWithMath(sender, txt) {
