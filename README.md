@@ -81,7 +81,7 @@ graph TD
 * Linux system (Arch, Ubuntu, Debian, Fedora)
 * Python 3.10+ with `fastapi`, `uvicorn`, `websockets`
 * `tmux`
-* `agy` CLI installed (`/home/casimir/.local/bin/agy`)
+* `agy` CLI installed (`~/.local/bin/agy`)
 
 ### 2. Installation
 ```bash
