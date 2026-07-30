@@ -635,7 +635,10 @@ HTML_PWA_TEMPLATE = r"""<!DOCTYPE html>
     </style>
 </head>
 <body>
-    <button type="button" class="btn-hamburger" onclick="toggleDrawer()" title="Obrir menú de la sessió">☰</button>
+    <div style="position:fixed; top:12px; left:12px; z-index:900; display:flex; gap:8px;">
+        <button type="button" class="btn-hamburger" style="position:static;" onclick="toggleDrawer()" title="Obrir menú de la sessió">☰</button>
+        <button type="button" id="btn-tts-toggle" class="btn-hamburger" style="position:static; background:rgba(22,27,34,0.75); border:1px solid var(--border); font-size:1.1rem; width:38px; height:38px; border-radius:10px; display:flex; align-items:center; justify-content:center;" onclick="toggleTTS()" title="Activar/Desactivar lectura automàtica per veu">🔇</button>
+    </div>
 
     <div id="drawer-overlay" class="drawer-overlay" onclick="closeDrawer()"></div>
 
@@ -927,6 +930,58 @@ HTML_PWA_TEMPLATE = r"""<!DOCTYPE html>
             } catch(e) { console.error(e); }
         }
 
+        let isTTSEnabled = false;
+
+        function toggleTTS() {
+            isTTSEnabled = !isTTSEnabled;
+            const btn = document.getElementById('btn-tts-toggle');
+            if (btn) {
+                btn.innerHTML = isTTSEnabled ? '🔊' : '🔇';
+                btn.style.background = isTTSEnabled ? 'rgba(56,189,248,0.25)' : 'rgba(22,27,34,0.75)';
+                btn.style.borderColor = isTTSEnabled ? 'var(--primary)' : 'var(--border)';
+            }
+            if (!isTTSEnabled && typeof window.speechSynthesis !== 'undefined') {
+                window.speechSynthesis.cancel();
+            }
+        }
+
+        function speakText(text) {
+            if (typeof window.speechSynthesis === 'undefined') return;
+            window.speechSynthesis.cancel();
+            
+            let clean = (text || '')
+                .replace(/```[\s\S]*?```/g, ' Codi en pantalla. ')
+                .replace(/`([^`]+)`/g, '$1')
+                .replace(/!\[([^\]]*)\]\([^)]+\)/g, '')
+                .replace(/<[^>]+>/g, '')
+                .replace(/\\\[[\s\S]*?\\\]/g, ' Fòrmula matemàtica en pantalla. ')
+                .replace(/\\\([\s\S]*?\\\)/g, ' Fòrmula. ')
+                .replace(/\$\$[\s\S]*?\$\$/g, ' Fòrmula. ')
+                .replace(/\$([^\$\n]+)\$/g, '$1')
+                .replace(/[*#_~]/g, '')
+                .replace(/https?:\/\/\S+/g, ' enllaç ');
+                
+            if (!clean.trim()) return;
+
+            const utterance = new SpeechSynthesisUtterance(clean);
+            utterance.rate = 1.05;
+            utterance.pitch = 1.0;
+
+            const voices = window.speechSynthesis.getVoices();
+            let caVoice = voices.find(v => (v.lang || '').startsWith('ca'));
+            let esVoice = voices.find(v => (v.lang || '').startsWith('es'));
+            
+            if (caVoice) {
+                utterance.voice = caVoice;
+                utterance.lang = 'ca-ES';
+            } else if (esVoice) {
+                utterance.voice = esVoice;
+                utterance.lang = 'es-ES';
+            }
+            
+            window.speechSynthesis.speak(utterance);
+        }
+
         function appendMsg(cls, sender, txt, timeStr) {
             const box = document.getElementById('chat-messages');
             if (!box) return;
@@ -936,6 +991,13 @@ HTML_PWA_TEMPLATE = r"""<!DOCTYPE html>
             if (cls === 'user') {
                 const now = timeStr || new Date().toLocaleString('ca-ES', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit' });
                 html += `<div style="text-align:right; font-size:0.68rem; opacity:0.5; margin-top:6px; font-weight:400; letter-spacing:0.2px;">${now}</div>`;
+            } else if (cls === 'bot') {
+                const escapedTxt = (txt || '').replace(/"/g, '&quot;').replace(/'/g, "\\'");
+                html += `<div style="display:flex; justify-content:flex-end; align-items:center; margin-top:10px; border-top:1px solid rgba(255,255,255,0.06); padding-top:6px;">
+                    <button type="button" onclick="speakText('${escapedTxt}')" style="background:rgba(56,189,248,0.1); border:1px solid rgba(56,189,248,0.25); color:var(--primary); padding:3px 10px; border-radius:6px; font-size:0.75rem; cursor:pointer; font-weight:600; display:flex; align-items:center; gap:4px;">
+                        🔊 Escolta
+                    </button>
+                </div>`;
             }
             div.innerHTML = html;
             enhanceCodeBlocks(div);
@@ -1087,6 +1149,9 @@ HTML_PWA_TEMPLATE = r"""<!DOCTYPE html>
                     if (!data.sender.includes('Tu')) {
                         if (activeChatId === 'default' || data.chat_id === activeChatId || !data.chat_id) {
                             appendMsg('bot', data.sender, data.text, data.timestamp);
+                            if (isTTSEnabled) {
+                                speakText(data.text);
+                            }
                         }
                     }
                 }
