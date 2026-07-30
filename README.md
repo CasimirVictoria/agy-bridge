@@ -59,6 +59,16 @@ Here is how **AGY-Bridge** executes complex symbolic quantum physics calculation
 
 *Highlights shown:* Pure symbolic SageMath 3D plotting (`plot3d` + Three.js WebGL exporter), full touch-gesture 360° orbital rotation, zoom, 1:1:1 isometric axis scaling, custom color mapping, and embedded interactive HTML5 `<iframe>` container.
 
+### 🛠️ Self-Modifying & Malleable Ecosystem
+
+**AGY-Bridge** is completely malleable: users can request UI changes, system feature additions, Git commits, privacy refactoring, or new MCP tools in natural language directly from their phone, and the agent modifies its own bridge server, UI, and repository in real time:
+
+<p align="center">
+  <img src="docs/malleable_self_modification_preview.png" alt="AGY-Bridge self-modifying its own codebase and repository directly from natural language mobile prompt" width="450">
+</p>
+
+*Highlights shown:* Live self-modification of `server.py` and `README.md`, real-time Git sanitization, automatic tagging (`v2.2-privacy-path-fix`), and background systemd service hot-reloading—all commanded via natural language from an Android phone.
+
 ---
 
 ## 🏗️ Architecture
