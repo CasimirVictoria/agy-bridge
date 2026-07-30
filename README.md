@@ -4,6 +4,8 @@
 
 It allows you to securely control your local workstation, run Python/SageMath code, audit emails, search academic literature, and access your Second Brain (Org-mode/Denote) from Android via **Hermit / Tailscale / Haven**.
 
+> 🌐 **Unlimited Digital Scope:** While the features listed above represent the core baseline implemented in this personal setup, **AGY-Bridge** can control and automate virtually *any* digital domain bounded only by the user's imagination and needs—from querying official government & regulatory databases (OpenFDA, ClinicalTrials), conducting real estate market studies, performing medical & biomedical research (PubMed, Reactome, OpenAlex), comparing supermarket product prices, auditing home solar/battery energy storage (Victron Energy), to executing any custom Linux command-line workflow.
+
 ---
 
 ## 💡 Philosophy & Vision: The Sovereign Return to Pure Text
