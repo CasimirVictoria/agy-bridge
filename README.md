@@ -38,6 +38,16 @@ By layering **AGY-Bridge** on top of this background daemon, users gain a dramat
 | <img src="docs/tmux_terminal_preview.png" alt="Raw persistent tmux terminal daemon running agy CLI" width="420"> | <img src="docs/latex_interface_preview.png" alt="AGY-Bridge Mobile Web PWA rendering KaTeX LaTeX equations" width="380"> |
 | *Raw Linux `tmux` session running `agy` continuously as a background `systemd` service.* | *Pristine KaTeX vector LaTeX math rendering, glassmorphic UI, and mobile controls.* |
 
+### ⚛️ Real-Time SageMath MCP Execution & Vector Math Output
+
+Here is how **AGY-Bridge** executes complex symbolic quantum physics calculations by dynamically invoking the **`jupyter-tfm` MCP Server** with the **`sagemath` kernel** (SageMath 10.10.beta4) and rendering real-time KaTeX vector math formulas directly on a mobile screen:
+
+<p align="center">
+  <img src="docs/sagemath_mcp_preview.png" alt="AGY-Bridge executing SageMath 10.10.beta4 via jupyter-tfm MCP Server with KaTeX rendering" width="450">
+</p>
+
+*Highlights shown:* Dynamic MCP tool execution (`jupyter-tfm` → `run_code` with `kernel: "sagemath"`), quantum harmonic oscillator wave function normalization ($\langle \psi_0 \mid \psi_0 \rangle = 1$), position expectation values ($\langle x^2 \rangle = \frac{\hbar}{2m\omega}$), Tokyo-Night code cards with 1-click copy button, and inline tool execution badges.
+
 ---
 
 ## 🏗️ Architecture
