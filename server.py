@@ -1501,13 +1501,29 @@ HTML_PWA_TEMPLATE = r"""<!DOCTYPE html>
 """
 
 if __name__ == "__main__":
+    import threading
     base_dir = os.path.dirname(os.path.abspath(__file__))
     cert_file = os.path.join(base_dir, "certs", "cert.pem")
     key_file = os.path.join(base_dir, "certs", "key.pem")
     
     if os.path.exists(cert_file) and os.path.exists(key_file):
-        print(f"🔒 Encrypted HTTPS mode active with SSL certificates!")
-        uvicorn.run(app, host="0.0.0.0", port=8000, ssl_certfile=cert_file, ssl_keyfile=key_file)
+        def run_http():
+            uvicorn.run(app, host="0.0.0.0", port=8000)
+
+        def run_https():
+            uvicorn.run(app, host="0.0.0.0", port=8443, ssl_certfile=cert_file, ssl_keyfile=key_file)
+
+        t_http = threading.Thread(target=run_http, daemon=True)
+        t_https = threading.Thread(target=run_https, daemon=True)
+        
+        t_http.start()
+        t_https.start()
+        
+        print(f"🌐 HTTP Server active on http://0.0.0.0:8000")
+        print(f"🔒 HTTPS Server active on https://0.0.0.0:8443")
+        
+        t_http.join()
+        t_https.join()
     else:
-        print(f"🌐 HTTP mode active (no SSL certs found).")
+        print(f"🌐 HTTP Mode active on http://0.0.0.0:8000")
         uvicorn.run(app, host="0.0.0.0", port=8000)
