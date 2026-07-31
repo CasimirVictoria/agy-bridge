@@ -105,6 +105,15 @@ Running **Google Antigravity CLI (`agy`)** inside a persistent `tmux` session co
 4. 🛡️ **Fault Tolerance & Network Decoupling:** Even if SSH connections, WebSockets, or Tailscale VPN tunnels drop, the underlying `agy` execution state remains 100% active in RAM.
 5. 🔀 **Multi-Agent Isolation:** Enables running isolated persistent sessions (`brain`, `research`, `math`) for specialized agents in separate workspace directories.
 
+### 🔒 Network Security & Sovereignty: Why Tailscale (WireGuard Mesh)?
+
+Integrating **Tailscale** (a zero-config WireGuard mesh VPN) as the networking foundation provides critical security and privacy advantages:
+
+* 🚫 **Zero Public Internet Exposure (No Router Port Forwarding):** `AGY-Bridge` binds strictly to your private overlay network (`100.x.x.x`). No router ports (e.g. port 8000) are opened to the public internet, completely eliminating automated port scanners, vulnerability probes, and external brute-force attacks.
+* 🔐 **End-to-End WireGuard Encryption:** All WebSocket traffic, REST payloads, and media streams transferred between your mobile phone and your Linux workstation are encrypted end-to-end using state-of-the-art WireGuard cryptography across 5G and public Wi-Fi networks.
+* 🌍 **Global Anywhere Access Behind CGNAT:** Whether behind Carrier-Grade NAT (CGNAT), dynamic home IPs, or restrictive firewall networks, Tailscale seamlessly establishes direct peer-to-peer connections to your workstation from anywhere in the world.
+* 🔑 **Mutual Device Authentication:** Only pre-authenticated devices registered in your private Tailnet (e.g., your authorized Android phone) can discover or communicate with the workstation bridge.
+
 ---
 
 ## 🚀 Quick Setup
