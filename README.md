@@ -95,6 +95,16 @@ graph TD
     D -- Transcripts JSONL --> B
 ```
 
+### 🏛️ Architectural Rationale: Why `tmux` + `systemd`?
+
+Running **Google Antigravity CLI (`agy`)** inside a persistent `tmux` session controlled by a `systemd` user daemon (rather than a raw headless service) provides five major engineering advantages:
+
+1. 🖥️ **Guaranteed Interactive PTY Environment:** `agy` is an interactive TUI application requiring a pseudo-terminal. `systemd` alone runs headless services without TTYs, which can cause TUI applications to exit. `tmux` creates a persistent PTY in RAM, keeping `agy` fully stable.
+2. 🔍 **Live Inspection & Manual Attach:** System administrators can inspect or audit the AI agent in real time from any terminal (`tmux attach -t brain`) and detach (`Ctrl+B, D`) without disrupting background execution.
+3. 🌉 **Non-Invasive Web Layer Integration:** `AGY-Bridge` sends inputs via `tmux send-keys` and inspects model status via `tmux capture-pane` without modifying the CLI source code.
+4. 🛡️ **Fault Tolerance & Network Decoupling:** Even if SSH connections, WebSockets, or Tailscale VPN tunnels drop, the underlying `agy` execution state remains 100% active in RAM.
+5. 🔀 **Multi-Agent Isolation:** Enables running isolated persistent sessions (`brain`, `research`, `math`) for specialized agents in separate workspace directories.
+
 ---
 
 ## 🚀 Quick Setup
