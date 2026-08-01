@@ -148,5 +148,12 @@ systemctl --user enable --now agy-brain.service agy-bridge.service
 
 ---
 
+## 🤝 Authorship & Pair-Programming Credits
+
+* 💡 **Architecture, Vision & System Direction:** Conceptualized, architected, and directed by **Casimir Victòria**. All system requirements, feature specifications, workflow designs, security choices (Tailscale WireGuard mesh, zero public ports), and architectural decisions (`systemd` daemon + `tmux` PTY persistence, SageMath 3D WebGL integration, thematic multi-chats) were conceived and guided by Casimir.
+* 🤖 **Code Implementation & Engineering:** Programmed, refactored, and deployed by **Antigravity AI** (Google DeepMind Agentic Pair-Programmer powered by Gemini 3.6 Flash / Pro). Antigravity converted Casimir's vision and natural-language directives into production-ready Python (FastAPI/WebSockets), Bash scripts, HTML5/JS Web PWA, systemd unit definitions, and GitHub documentation.
+
+---
+
 ## 📄 License
 MIT License. Created by Casimir Victòria.
