@@ -35,7 +35,7 @@ Having **Google Antigravity CLI (`agy`)** running continuously as a systemd back
 * 💬 **Thematic Independent Chats:** Multi-topic conversation switching (`🌐 General`, `🩺 Health & Supplements`, `🔬 Science & TFM`, `📧 Email & Management`) with automatic backfilling and persistent state.
 * 📐 **Vector KaTeX Math Rendering:** Pristine LaTeX rendering for mathematical and physical equations ($\nabla \cdot \mathbf{E} = 0$, $c = \frac{1}{\sqrt{\mu_0 \varepsilon_0}}$) extracted directly from raw model transcripts.
 * 🌊 **3D Interactive WebGL Plotting:** Embedded Three.js WebGL containers for native 3D SageMath surfaces ($z = \sin(\sqrt{x^2+y^2})$) with 360° touch rotation, pan, and zoom on mobile.
-* 💻 **Tokyo-Night Syntax Highlighting:** Dark theme code cards for Python, R, Bash, C++, etc., equipped with a 1-click `📋 Copiar` button.
+* 💻 **Live Tmux Terminal Inspection:** Tap the "Thinking..." badge to open a live glassmorphic terminal preview modal streaming real-time raw `tmux` pane output (tool calls, bash logs, reasoning steps) refreshed every 1s.
 * ⚡ **FastAPI & WebSockets Engine:** Duplex communication streaming updates in real time while tracking `agy` execution status.
 * 🛡️ **Autonomous Execution:** Pre-approved permission modes (`--dangerously-skip-permissions`) eliminating terminal interactive prompts.
 

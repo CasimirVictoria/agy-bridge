@@ -201,6 +201,16 @@ def upload_image(req: ImageUploadRequest):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+@app.get("/api/tmux/preview")
+def get_tmux_preview_api():
+    """Retrieve raw tmux capture-pane output for live terminal inspection."""
+    try:
+        res = subprocess.run(["tmux", "capture-pane", "-pt", "brain:0.0"], capture_output=True, text=True)
+        lines = res.stdout.splitlines()
+        return {"status": "success", "lines": lines, "text": res.stdout}
+    except Exception as e:
+        return {"status": "error", "lines": [f"Error capturant tmux: {e}"], "text": str(e)}
+
 # --- Conversations Endpoints ---
 @app.get("/api/antigravity/status")
 def get_antigravity_status():
@@ -641,12 +651,42 @@ HTML_PWA_TEMPLATE = r"""<!DOCTYPE html>
             border-left: 3px solid var(--primary);
         }
 
+        /* Tmux Terminal Modal Styles */
+        .modal-overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0, 0, 0, 0.8); backdrop-filter: blur(8px);
+            display: flex; align-items: center; justify-content: center;
+            z-index: 2000; animation: fadeIn 0.2s ease-out;
+        }
+
     </style>
 </head>
 <body>
     <button type="button" class="btn-hamburger" onclick="toggleDrawer()" title="Obrir menú de la sessió">☰</button>
 
     <div id="drawer-overlay" class="drawer-overlay" onclick="closeDrawer()"></div>
+
+    <!-- Tmux Live Terminal Preview Modal -->
+    <div id="tmux-modal" class="modal-overlay" style="display:none;" onclick="if(event.target===this) closeTmuxModal()">
+        <div style="max-width:900px; width:95%; background:#090d16; border:1px solid #38bdf8; box-shadow:0 10px 40px rgba(0,0,0,0.8); border-radius:12px; overflow:hidden; display:flex; flex-direction:column;">
+            <div style="display:flex; justify-content:space-between; align-items:center; padding:12px 16px; background:#111827; border-bottom:1px solid #1f2937;">
+                <div style="display:flex; align-items:center; gap:8px; font-weight:700; color:#38bdf8; font-size:0.95rem;">
+                    <span>💻</span> Terminal en Directe (tmux brain:0.0)
+                </div>
+                <button type="button" onclick="closeTmuxModal()" style="background:none; border:none; color:#9ca3af; font-size:1.4rem; cursor:pointer; line-height:1;">✕</button>
+            </div>
+            <div id="tmux-terminal-container" style="padding:14px; height:60vh; overflow-y:auto; font-family:'Fira Code', 'Consolas', 'Courier New', monospace; font-size:0.82rem; line-height:1.45; color:#a9b1d6; background:#090d16; white-space:pre-wrap; word-break:break-all;">
+                Carregant terminal en directe...
+            </div>
+            <div style="display:flex; justify-content:space-between; align-items:center; padding:10px 16px; background:#111827; border-top:1px solid #1f2937; font-size:0.8rem; color:#9ca3af;">
+                <span style="display:flex; align-items:center; gap:6px;">
+                    <span style="width:8px; height:8px; background:#10b981; border-radius:50%; display:inline-block;"></span>
+                    Actualitzant en temps real (1s)
+                </span>
+                <button type="button" onclick="copyTmuxContent()" style="background:#1f2937; color:#e5e7eb; border:1px solid #374151; padding:4px 12px; border-radius:6px; font-size:0.8rem; cursor:pointer; font-weight:600;">📋 Copiar Raw</button>
+            </div>
+        </div>
+    </div>
 
     <div id="drawer" class="drawer">
         <div class="drawer-header">
@@ -718,11 +758,11 @@ HTML_PWA_TEMPLATE = r"""<!DOCTYPE html>
                 <button type="button" class="btn-clear-topic" onclick="selectChat('default', '🌐 Xat General (Tots)')">✕ Mostra tot</button>
             </div>
             <div class="chat-box" id="chat-messages"></div>
-            <div id="thinking-indicator" class="thinking-badge" style="display:none;">
+            <div id="thinking-indicator" class="thinking-badge" style="display:none; cursor:pointer;" onclick="openTmuxModal()" title="Toca per a veure el terminal en directe">
                 <span class="spinner-dot"></span>
                 <span class="spinner-dot"></span>
                 <span class="spinner-dot"></span>
-                <span style="margin-left:6px; font-weight:600; color:var(--primary);">⚡ L'IA està pensant i processant...</span>
+                <span style="margin-left:6px; font-weight:600; color:var(--primary);">⚡ L'IA està pensant i processant... <span style="font-size:0.8rem; text-decoration:underline; opacity:0.9; margin-left:4px;">[💻 Veure Terminal 🔍]</span></span>
             </div>
         </main>
 
@@ -751,6 +791,60 @@ HTML_PWA_TEMPLATE = r"""<!DOCTYPE html>
     <script>
         let ws;
         let pastedImageBase64 = null;
+        let tmuxInterval = null;
+
+        function openTmuxModal() {
+            let modal = document.getElementById('tmux-modal');
+            if (modal) {
+                modal.style.display = 'flex';
+                fetchTmuxPreview();
+                if (!tmuxInterval) {
+                    tmuxInterval = setInterval(fetchTmuxPreview, 1000);
+                }
+            }
+        }
+
+        function closeTmuxModal() {
+            let modal = document.getElementById('tmux-modal');
+            if (modal) {
+                modal.style.display = 'none';
+            }
+            if (tmuxInterval) {
+                clearInterval(tmuxInterval);
+                tmuxInterval = null;
+            }
+        }
+
+        async function fetchTmuxPreview() {
+            try {
+                let res = await fetch('/api/tmux/preview');
+                let data = await res.json();
+                let container = document.getElementById('tmux-terminal-container');
+                if (container && data.text) {
+                    let escaped = data.text
+                        .replace(/&/g, "&amp;")
+                        .replace(/</g, "&lt;")
+                        .replace(/>/g, "&gt;");
+                    
+                    // Highlight tool calls and spinners in cyan/amber
+                    escaped = escaped.replace(/●\s*(.*)/g, '<span style="color:#38bdf8; font-weight:bold;">● $1</span>');
+                    escaped = escaped.replace(/⣾|⣽|⣻|⢿|⡿|⣟|⣯|⣷/g, '<span style="color:#f59e0b; font-weight:bold;">$&</span>');
+
+                    container.innerHTML = escaped;
+                    container.scrollTop = container.scrollHeight;
+                }
+            } catch (e) {
+                console.error('Error fetching tmux preview:', e);
+            }
+        }
+
+        function copyTmuxContent() {
+            let container = document.getElementById('tmux-terminal-container');
+            if (container) {
+                navigator.clipboard.writeText(container.innerText);
+                alert('Contingut del terminal copiat al portapapers!');
+            }
+        }
 
         function cleanImagePaths(txt) {
             if (!txt) return '';
