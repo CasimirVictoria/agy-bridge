@@ -773,7 +773,7 @@ HTML_PWA_TEMPLATE = r"""<!DOCTYPE html>
     <button type="button" class="btn-terminal-toggle" onclick="openTmuxModal()" title="Obrir Terminal interactiva en directe (tmux)">💻</button>
     <button type="button" class="btn-search-toggle" onclick="toggleChatSearchBar()" title="Buscar en la conversa (Ctrl+F)">🔍</button>
 
-    <div id="chat-search-bar" class="chat-search-bar" style="display:none; position: fixed; top: 12px; right: 110px; z-index: 1001; background: #111827; border: 1px solid var(--primary); border-radius: 24px; padding: 6px 14px; display: flex; align-items: center; gap: 8px; box-shadow: 0 8px 30px rgba(0,0,0,0.6); animation: fadeIn 0.2s ease-out; max-width: 85vw;">
+    <div id="chat-search-bar" class="chat-search-bar" style="display:none;">
         <input type="text" id="chat-search-input" placeholder="Cerca una paraula o frase..." onkeyup="handleSearchInputKey(event)" oninput="performChatSearch()">
         <span id="chat-search-count" class="search-count-badge">0/0</span>
         <button type="button" class="btn-search-nav" onclick="navigateSearch(-1)" title="Anterior (Shift+Enter)">▲</button>
