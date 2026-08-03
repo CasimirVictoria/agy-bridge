@@ -109,6 +109,16 @@ Here is the **Mobile PWA Interface** side-by-side with the **Live Interactive We
 
 ## 🏛️ Architectural Rationale: Why `tmux` + `systemd`?
 
+```mermaid
+graph TD
+    A[📱 Android / Mobile Browser] -- Tailscale VPN / HTTP/WS --> B[⚡ FastAPI Web Bridge]
+    B -- WebSockets / REST --> C[💻 Persistent Tmux Session]
+    C -- CLI Exec --> D[🤖 Google Antigravity CLI]
+    D -- System Execution --> E[🧠 Local System & MCPs]
+    E -- Maildir / Org-mode / Jupyter --> F[📦 Segon Cervell & Workstation]
+    D -- Transcripts JSONL --> B
+```
+
 Running **Google Antigravity CLI (`agy`)** inside a persistent `tmux` session controlled by a `systemd` user daemon (rather than a raw headless service) provides five major engineering advantages:
 
 1. 🖥️ **Guaranteed Interactive PTY Environment:** `agy` is an interactive TUI application requiring a pseudo-terminal. `systemd` alone runs headless services without TTYs, which can cause TUI applications to exit. `tmux` creates a persistent PTY in RAM, keeping `agy` fully stable.
