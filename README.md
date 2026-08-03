@@ -106,6 +106,8 @@ Running **Google Antigravity CLI (`agy`)** inside a persistent `tmux` session co
 4. 🛡️ **Fault Tolerance & Network Decoupling:** Even if SSH connections, WebSockets, or Tailscale VPN tunnels drop, the underlying `agy` execution state remains 100% active in RAM.
 5. 🔀 **Multi-Agent Isolation:** Enables running isolated persistent sessions (`brain`, `research`, `math`) for specialized agents in separate workspace directories.
 
+> 💡 **Architectural Note on Optional `tmux` Usage ("Just in Case"):** While `AGY-Bridge` can technically run `agy` directly as a headless Python PTY server daemon without `tmux`, keeping `tmux` enabled as the default execution layer provides an unbeatable safety net "just in case". It allows system administrators to attach directly from any terminal (`tmux attach -t brain`) for live TUI debugging, inspect background shell states, or issue emergency commands if network tunnels degrade.
+
 ### 🔒 Network Security & Sovereignty: Why Tailscale (WireGuard Mesh)?
 
 Integrating **Tailscale** (a zero-config WireGuard mesh VPN) as the networking foundation provides critical security and privacy advantages:
