@@ -94,15 +94,16 @@ Here is how **AGY-Bridge** executes complex symbolic quantum physics calculation
 
 *Highlights shown:* Live self-modification of `server.py` and `README.md`, real-time Git sanitization, automatic tagging (`v2.2-privacy-path-fix`), and background systemd service hot-reloading—all commanded via natural language from an Android phone.
 
-### 🎮 Interactive Web Terminal Modal & Live Console Input
+### 📱 Mobile PWA Interface & 🎮 Interactive Web Terminal Modal
 
-Here is the **Interactive Web Terminal Modal** running live inside **AGY-Bridge**, showing real-time `tmux` terminal output, single-tap quick control buttons (`↵ Enter`, `y`, `n`, `^C Stop`), and instant command input directly from any mobile or desktop browser:
+Here is the **Mobile PWA Interface** side-by-side with the **Live Interactive Web Terminal Modal** in **AGY-Bridge**:
 
-<p align="center">
-  <img src="docs/interactive_web_terminal_preview.png" alt="AGY-Bridge Interactive Web Terminal Modal with live command input and quick control buttons" width="550">
-</p>
+| 📱 Mobile PWA Interface (Header Controls & KaTeX) | 🎮 Live Interactive `tmux` Terminal Modal |
+| :---: | :---: |
+| <img src="docs/mobile_pwa_header_preview.png" alt="AGY-Bridge Mobile PWA Interface with permanent terminal button and search button" width="380"> | <img src="docs/interactive_web_terminal_preview.png" alt="AGY-Bridge Interactive Web Terminal Modal with live command input and quick control buttons" width="380"> |
+| *Mobile PWA view showing KaTeX math output, top search button (`🔍`), and permanent terminal trigger (`💻`).* | *Live `tmux` console modal showing PTY terminal stream, quick action buttons (`↵ Enter`, `y`, `n`, `^C Stop`), and shell input bar.* |
 
-*Highlights shown:* Always-accessible `💻` terminal button, live PTY stream, interactive input bar for direct shell commands, quick action buttons (`↵ Enter`, `y (Sí)`, `n (No)`, `^C Stop`), raw copy button, and Tokyo-Night styling.
+*Highlights shown:* Always-accessible `💻` terminal button in top header, live `tmux` PTY stream, interactive input bar for direct shell commands, quick action buttons (`↵ Enter`, `y (Sí)`, `n (No)`, `^C Stop`), in-chat search bar (`🔍`), raw copy button, and Tokyo-Night glassmorphism.
 
 ---
 
