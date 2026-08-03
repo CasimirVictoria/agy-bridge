@@ -94,6 +94,16 @@ Here is how **AGY-Bridge** executes complex symbolic quantum physics calculation
 
 *Highlights shown:* Live self-modification of `server.py` and `README.md`, real-time Git sanitization, automatic tagging (`v2.2-privacy-path-fix`), and background systemd service hot-reloading—all commanded via natural language from an Android phone.
 
+### 🎮 Interactive Web Terminal Modal & Live Console Input
+
+Here is the **Interactive Web Terminal Modal** running live inside **AGY-Bridge**, showing real-time `tmux` terminal output, single-tap quick control buttons (`↵ Enter`, `y`, `n`, `^C Stop`), and instant command input directly from any mobile or desktop browser:
+
+<p align="center">
+  <img src="docs/interactive_web_terminal_preview.png" alt="AGY-Bridge Interactive Web Terminal Modal with live command input and quick control buttons" width="550">
+</p>
+
+*Highlights shown:* Always-accessible `💻` terminal button, live PTY stream, interactive input bar for direct shell commands, quick action buttons (`↵ Enter`, `y (Sí)`, `n (No)`, `^C Stop`), raw copy button, and Tokyo-Night styling.
+
 ---
 
 ## 🏛️ Architectural Rationale: Why `tmux` + `systemd`?
