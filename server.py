@@ -211,6 +211,32 @@ def get_tmux_preview_api():
     except Exception as e:
         return {"status": "error", "lines": [f"Error capturant tmux: {e}"], "text": str(e)}
 
+class TmuxInputRequest(BaseModel):
+    keys: str
+    target: str = "brain:0.0"
+
+@app.post("/api/tmux/input")
+def send_tmux_input_api(req: TmuxInputRequest):
+    """Send keystrokes or commands directly into the active tmux session."""
+    target = req.target or "brain:0.0"
+    keys = req.keys
+    try:
+        if keys == "ENTER":
+            cmd = ["tmux", "send-keys", "-t", target, "Enter"]
+        elif keys == "CTRL_C":
+            cmd = ["tmux", "send-keys", "-t", target, "C-c"]
+        elif keys == "Y":
+            cmd = ["tmux", "send-keys", "-t", target, "y", "Enter"]
+        elif keys == "N":
+            cmd = ["tmux", "send-keys", "-t", target, "n", "Enter"]
+        else:
+            cmd = ["tmux", "send-keys", "-t", target, keys, "Enter"]
+        
+        subprocess.run(cmd, check=False)
+        return {"status": "success", "sent": keys}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
 # --- Conversations Endpoints ---
 @app.get("/api/antigravity/status")
 def get_antigravity_status():
@@ -281,11 +307,29 @@ def get_conversations():
     }
 
 @app.get("/api/conversations/{chat_id}")
-def get_chat_detail(chat_id: str):
+def get_chat_detail(chat_id: str, limit: int = 25, offset: int = 0):
     convs = load_conversations()
     if chat_id not in convs["chats"]:
         raise HTTPException(status_code=404, detail="Conversa no trobada")
-    return convs["chats"][chat_id]
+    chat = convs["chats"][chat_id]
+    all_msgs = chat.get("messages", [])
+    total = len(all_msgs)
+    
+    if limit <= 0:
+        sliced_msgs = all_msgs
+    else:
+        end_idx = max(0, total - offset)
+        start_idx = max(0, end_idx - limit)
+        sliced_msgs = all_msgs[start_idx:end_idx]
+        
+    return {
+        "id": chat_id,
+        "title": chat.get("title", "Sense títol"),
+        "total_messages": total,
+        "offset": offset,
+        "limit": limit,
+        "messages": sliced_msgs
+    }
 
 class SelectChatRequest(BaseModel):
     chat_id: str
@@ -659,10 +703,83 @@ HTML_PWA_TEMPLATE = r"""<!DOCTYPE html>
             z-index: 2000; animation: fadeIn 0.2s ease-out;
         }
 
+        /* Chat Search Bar Styles */
+        .btn-search-toggle {
+            position: fixed; top: 12px; right: 12px; z-index: 1000;
+            background: rgba(30, 41, 59, 0.85); backdrop-filter: blur(12px);
+            border: 1px solid var(--border); color: var(--text-muted);
+            width: 42px; height: 42px; border-radius: 50%;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 1.1rem; cursor: pointer; transition: all 0.2s ease;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.4);
+        }
+        .btn-search-toggle:hover {
+            color: var(--primary); border-color: var(--primary);
+            transform: scale(1.05);
+        }
+        .chat-search-bar {
+            position: fixed; top: 12px; right: 60px; z-index: 1001;
+            background: #111827; border: 1px solid var(--primary);
+            border-radius: 24px; padding: 6px 14px;
+            display: flex; align-items: center; gap: 8px;
+            box-shadow: 0 8px 30px rgba(0,0,0,0.6);
+            animation: fadeIn 0.2s ease-out;
+            max-width: 85vw;
+        }
+        .chat-search-bar input {
+            background: none; border: none; color: #f3f4f6;
+            outline: none; font-size: 0.9rem; width: 180px;
+        }
+        .search-count-badge {
+            font-size: 0.75rem; color: #9ca3af; font-weight: 600;
+            white-space: nowrap;
+        }
+        .btn-search-nav, .btn-search-close {
+            background: none; border: none; color: #9ca3af;
+            cursor: pointer; font-size: 0.85rem; padding: 2px 6px;
+            border-radius: 4px; transition: color 0.2s;
+        }
+        .btn-search-nav:hover, .btn-search-close:hover {
+            color: var(--primary);
+        }
+        mark.search-highlight {
+            background: #f59e0b; color: #000; border-radius: 2px;
+            padding: 0 2px; font-weight: bold;
+        }
+        mark.search-highlight-active {
+            background: #ef4444; color: #fff; border-radius: 2px;
+            padding: 0 2px; font-weight: bold; box-shadow: 0 0 8px #ef4444;
+        }
+        /* Permanent Terminal Toggle Button */
+        .btn-terminal-toggle {
+            position: fixed; top: 12px; right: 60px; z-index: 1000;
+            background: rgba(30, 41, 59, 0.85); backdrop-filter: blur(12px);
+            border: 1px solid var(--border); color: #38bdf8;
+            width: 42px; height: 42px; border-radius: 50%;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 1.1rem; cursor: pointer; transition: all 0.2s ease;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.4);
+        }
+        .btn-terminal-toggle:hover {
+            border-color: #38bdf8; transform: scale(1.05); background: #1e293b;
+        }
+
     </style>
 </head>
 <body>
     <button type="button" class="btn-hamburger" onclick="toggleDrawer()" title="Obrir menú de la sessió">☰</button>
+
+    <!-- Permanent Terminal & Search Toggle Buttons -->
+    <button type="button" class="btn-terminal-toggle" onclick="openTmuxModal()" title="Obrir Terminal interactiva en directe (tmux)">💻</button>
+    <button type="button" class="btn-search-toggle" onclick="toggleChatSearchBar()" title="Buscar en la conversa (Ctrl+F)">🔍</button>
+
+    <div id="chat-search-bar" class="chat-search-bar" style="display:none; position: fixed; top: 12px; right: 110px; z-index: 1001; background: #111827; border: 1px solid var(--primary); border-radius: 24px; padding: 6px 14px; display: flex; align-items: center; gap: 8px; box-shadow: 0 8px 30px rgba(0,0,0,0.6); animation: fadeIn 0.2s ease-out; max-width: 85vw;">
+        <input type="text" id="chat-search-input" placeholder="Cerca una paraula o frase..." onkeyup="handleSearchInputKey(event)" oninput="performChatSearch()">
+        <span id="chat-search-count" class="search-count-badge">0/0</span>
+        <button type="button" class="btn-search-nav" onclick="navigateSearch(-1)" title="Anterior (Shift+Enter)">▲</button>
+        <button type="button" class="btn-search-nav" onclick="navigateSearch(1)" title="Següent (Enter)">▼</button>
+        <button type="button" class="btn-search-close" onclick="closeChatSearchBar()" title="Tancar cerca (Esc)">✕</button>
+    </div>
 
     <div id="drawer-overlay" class="drawer-overlay" onclick="closeDrawer()"></div>
 
@@ -678,12 +795,20 @@ HTML_PWA_TEMPLATE = r"""<!DOCTYPE html>
             <div id="tmux-terminal-container" style="padding:14px; height:60vh; overflow-y:auto; font-family:'Fira Code', 'Consolas', 'Courier New', monospace; font-size:0.82rem; line-height:1.45; color:#a9b1d6; background:#090d16; white-space:pre-wrap; word-break:break-all;">
                 Carregant terminal en directe...
             </div>
-            <div style="display:flex; justify-content:space-between; align-items:center; padding:10px 16px; background:#111827; border-top:1px solid #1f2937; font-size:0.8rem; color:#9ca3af;">
-                <span style="display:flex; align-items:center; gap:6px;">
-                    <span style="width:8px; height:8px; background:#10b981; border-radius:50%; display:inline-block;"></span>
-                    Actualitzant en temps real (1s)
-                </span>
-                <button type="button" onclick="copyTmuxContent()" style="background:#1f2937; color:#e5e7eb; border:1px solid #374151; padding:4px 12px; border-radius:6px; font-size:0.8rem; cursor:pointer; font-weight:600;">📋 Copiar Raw</button>
+            <div style="display:flex; flex-direction:column; gap:8px; padding:10px 16px; background:#111827; border-top:1px solid #1f2937;">
+                <div style="display:flex; gap:6px; align-items:center;">
+                    <input type="text" id="tmux-input-text" placeholder="Escriu comanda o tecles a enviar a tmux..." onkeyup="if(event.key==='Enter') sendTmuxKeysFromInput()" style="flex:1; background:#090d16; border:1px solid #374151; color:#f3f4f6; padding:6px 12px; border-radius:6px; font-size:0.85rem; outline:none;">
+                    <button type="button" onclick="sendTmuxKeysFromInput()" style="background:#38bdf8; color:#090d16; border:none; padding:6px 14px; border-radius:6px; font-weight:700; font-size:0.82rem; cursor:pointer;">▶ Enviar</button>
+                </div>
+                <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:6px; font-size:0.8rem; color:#9ca3af;">
+                    <div style="display:flex; gap:6px; align-items:center; flex-wrap:wrap;">
+                        <button type="button" onclick="sendTmuxQuickKey('ENTER')" style="background:#1f2937; color:#e5e7eb; border:1px solid #374151; padding:3px 10px; border-radius:4px; font-size:0.78rem; cursor:pointer;">↵ Enter</button>
+                        <button type="button" onclick="sendTmuxQuickKey('Y')" style="background:#1f2937; color:#4ade80; border:1px solid #374151; padding:3px 10px; border-radius:4px; font-size:0.78rem; cursor:pointer;">y (Sí)</button>
+                        <button type="button" onclick="sendTmuxQuickKey('N')" style="background:#1f2937; color:#f87171; border:1px solid #374151; padding:3px 10px; border-radius:4px; font-size:0.78rem; cursor:pointer;">n (No)</button>
+                        <button type="button" onclick="sendTmuxQuickKey('CTRL_C')" style="background:#1f2937; color:#fbbf24; border:1px solid #374151; padding:3px 10px; border-radius:4px; font-size:0.78rem; cursor:pointer;">^C Stop</button>
+                    </div>
+                    <button type="button" onclick="copyTmuxContent()" style="background:#1f2937; color:#e5e7eb; border:1px solid #374151; padding:4px 12px; border-radius:6px; font-size:0.78rem; cursor:pointer; font-weight:600;">📋 Copiar Raw</button>
+                </div>
             </div>
         </div>
     </div>
@@ -846,11 +971,45 @@ HTML_PWA_TEMPLATE = r"""<!DOCTYPE html>
             }
         }
 
+        async function sendTmuxQuickKey(keyType) {
+            try {
+                await fetch('/api/tmux/input', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ keys: keyType })
+                });
+                fetchTmuxPreview();
+            } catch(e) { console.error('Error sending tmux key:', e); }
+        }
+
+        async function sendTmuxKeysFromInput() {
+            const input = document.getElementById('tmux-input-text');
+            if (!input || !input.value.trim()) return;
+            const txt = input.value.trim();
+            input.value = '';
+            try {
+                await fetch('/api/tmux/input', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ keys: txt })
+                });
+                fetchTmuxPreview();
+            } catch(e) { console.error('Error sending tmux text:', e); }
+        }
+
         function cleanImagePaths(txt) {
             if (!txt) return '';
             let cleaned = txt.replace(/\[?Imatge enganxada:\s*\/[^\s\]]+\.png\]?/gi, '📷 *[Imatge]*');
             
-            // Convert file:///... into working HTML <img> tags pointing to /api/media/
+            // Convert .html files in ![alt](file:///...) into working responsive <iframe> tags
+            cleaned = cleaned.replace(/!\[([^\]]*)\]\((?:file:\/\/)?([^\s\)]+\.html)\)/gi, (match, alt, htmlPath) => {
+                let cleanPath = htmlPath.replace(/^\/+/, '');
+                return `<div style="width:100%; max-width:820px; height:500px; margin:14px 0; border:1px solid #38bdf8; border-radius:12px; overflow:hidden; box-shadow:0 8px 30px rgba(0,0,0,0.6);">
+                    <iframe src="/api/media/${cleanPath}" style="width:100%; height:100%; border:none;" title="${alt || 'Widget Interactiu'}"></iframe>
+                </div>`;
+            });
+
+            // Convert images in ![alt](file:///...) into working <img> tags
             cleaned = cleaned.replace(/!\[([^\]]*)\]\((?:file:\/\/)?([^\s\)]+)\)/gi, (match, alt, imgPath) => {
                 let cleanPath = imgPath.replace(/^\/+/, '');
                 return `<img src="/api/media/${cleanPath}" alt="${alt || 'Imatge'}" style="max-width:100%; border-radius:12px; margin:12px 0; display:block; box-shadow:0 8px 25px rgba(0,0,0,0.5);" />`;
@@ -980,17 +1139,72 @@ HTML_PWA_TEMPLATE = r"""<!DOCTYPE html>
             await loadChatMessages(chatId);
         }
 
-        async function loadChatMessages(chatId) {
+        let chatPaginationState = { offset: 0, limit: 25, total: 0 };
+
+        async function loadChatMessages(chatId, offset = 0, isAppendOlder = false) {
             try {
                 const targetId = chatId || activeChatId;
-                const r = await fetch(`/api/conversations/${targetId}`);
-                const chat = await r.json();
+                if (!isAppendOlder) {
+                    chatPaginationState = { offset: 0, limit: 25, total: 0 };
+                }
+                const r = await fetch(`/api/conversations/${targetId}?limit=${chatPaginationState.limit}&offset=${offset}`);
+                const data = await r.json();
+                
+                chatPaginationState.total = data.total_messages || 0;
+                chatPaginationState.offset = offset;
+
                 const box = document.getElementById('chat-messages');
-                box.innerHTML = '';
-                (chat.messages || []).forEach(m => {
-                    appendMsg(m.sender.includes('Tu') ? 'user' : 'bot', m.sender, m.text, m.timestamp);
+                if (!box) return;
+
+                if (!isAppendOlder) {
+                    box.innerHTML = '';
+                }
+
+                const oldBar = document.getElementById('load-older-bar');
+                if (oldBar) oldBar.remove();
+
+                const msgs = data.messages || [];
+                const frag = document.createDocumentFragment();
+
+                msgs.forEach(m => {
+                    const cls = m.sender.includes('Tu') ? 'user' : 'bot';
+                    const div = document.createElement('div');
+                    div.className = `msg ${cls}`;
+                    let html = renderMarkdownWithMath(m.sender, m.text);
+                    if (cls === 'user') {
+                        const now = m.timestamp || new Date().toLocaleString('ca-ES', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit' });
+                        html += `<div style="text-align:right; font-size:0.68rem; opacity:0.5; margin-top:6px; font-weight:400; letter-spacing:0.2px;">${now}</div>`;
+                    }
+                    div.innerHTML = html;
+                    enhanceCodeBlocks(div);
+                    frag.appendChild(div);
                 });
-            } catch(e) { console.error(e); }
+
+                if (isAppendOlder) {
+                    box.insertBefore(frag, box.firstChild);
+                } else {
+                    box.appendChild(frag);
+                }
+
+                const remaining = chatPaginationState.total - (offset + msgs.length);
+                if (remaining > 0) {
+                    const topBar = document.createElement('div');
+                    topBar.id = 'load-older-bar';
+                    topBar.style.cssText = 'text-align:center; padding:12px; margin-bottom:10px; width:100%;';
+                    topBar.innerHTML = `<button type="button" onclick="loadOlderMessages()" style="background:#1e293b; color:#38bdf8; border:1px solid #334155; padding:8px 18px; border-radius:20px; font-size:0.82rem; font-weight:600; cursor:pointer; transition:all 0.2s;">📜 Carregar ${Math.min(25, remaining)} missatges anteriors (${remaining} restants)...</button>`;
+                    box.insertBefore(topBar, box.firstChild);
+                }
+
+                if (!isAppendOlder) {
+                    box.scrollTop = box.scrollHeight;
+                }
+
+            } catch(e) { console.error('Error loading chat:', e); }
+        }
+
+        function loadOlderMessages() {
+            const nextOffset = chatPaginationState.offset + chatPaginationState.limit;
+            loadChatMessages(activeChatId, nextOffset, true);
         }
 
         async function clearActiveChat() {
@@ -1489,6 +1703,139 @@ HTML_PWA_TEMPLATE = r"""<!DOCTYPE html>
                     };
                     reader.readAsDataURL(blob);
                 }
+            }
+        });
+
+        let searchMatches = [];
+        let currentSearchIndex = -1;
+
+        function toggleChatSearchBar() {
+            const bar = document.getElementById('chat-search-bar');
+            if (!bar) return;
+            if (bar.style.display === 'none' || !bar.style.display) {
+                bar.style.display = 'flex';
+                const input = document.getElementById('chat-search-input');
+                if (input) {
+                    input.focus();
+                    input.select();
+                }
+                performChatSearch();
+            } else {
+                closeChatSearchBar();
+            }
+        }
+
+        function closeChatSearchBar() {
+            const bar = document.getElementById('chat-search-bar');
+            if (bar) bar.style.display = 'none';
+            clearChatSearchHighlights();
+            searchMatches = [];
+            currentSearchIndex = -1;
+            updateSearchCountBadge();
+        }
+
+        function clearChatSearchHighlights() {
+            const highlights = document.querySelectorAll('mark.search-highlight, mark.search-highlight-active');
+            highlights.forEach(h => {
+                const parent = h.parentNode;
+                if (parent) {
+                    parent.replaceChild(document.createTextNode(h.textContent), h);
+                    parent.normalize();
+                }
+            });
+        }
+
+        function performChatSearch() {
+            clearChatSearchHighlights();
+            searchMatches = [];
+            currentSearchIndex = -1;
+
+            const query = (document.getElementById('chat-search-input').value || '').trim();
+            if (!query) {
+                updateSearchCountBadge();
+                return;
+            }
+
+            const chatContainer = document.getElementById('chat-messages');
+            if (!chatContainer) return;
+
+            const msgElements = chatContainer.querySelectorAll('.message-content, .msg-text, p, li, td, th, code, span');
+            const regex = new RegExp(`(${query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi');
+
+            msgElements.forEach(node => {
+                if (node.children.length === 0 && node.textContent && node.textContent.toLowerCase().includes(query.toLowerCase())) {
+                    const text = node.textContent;
+                    const parts = text.split(regex);
+                    const frag = document.createDocumentFragment();
+
+                    parts.forEach(part => {
+                        if (part.toLowerCase() === query.toLowerCase()) {
+                            const mark = document.createElement('mark');
+                            mark.className = 'search-highlight';
+                            mark.textContent = part;
+                            frag.appendChild(mark);
+                            searchMatches.push(mark);
+                        } else {
+                            frag.appendChild(document.createTextNode(part));
+                        }
+                    });
+
+                    if (node.parentNode) {
+                        node.parentNode.replaceChild(frag, node);
+                    }
+                }
+            });
+
+            if (searchMatches.length > 0) {
+                currentSearchIndex = 0;
+                highlightCurrentSearchMatch();
+            }
+            updateSearchCountBadge();
+        }
+
+        function highlightCurrentSearchMatch() {
+            searchMatches.forEach((m, idx) => {
+                if (idx === currentSearchIndex) {
+                    m.className = 'search-highlight-active';
+                    m.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                } else {
+                    m.className = 'search-highlight';
+                }
+            });
+        }
+
+        function navigateSearch(direction) {
+            if (searchMatches.length === 0) return;
+            currentSearchIndex += direction;
+            if (currentSearchIndex >= searchMatches.length) currentSearchIndex = 0;
+            if (currentSearchIndex < 0) currentSearchIndex = searchMatches.length - 1;
+            highlightCurrentSearchMatch();
+            updateSearchCountBadge();
+        }
+
+        function handleSearchInputKey(e) {
+            if (e.key === 'Enter') {
+                if (e.shiftKey) navigateSearch(-1);
+                else navigateSearch(1);
+            } else if (e.key === 'Escape') {
+                closeChatSearchBar();
+            }
+        }
+
+        function updateSearchCountBadge() {
+            const badge = document.getElementById('chat-search-count');
+            if (!badge) return;
+            if (searchMatches.length === 0) {
+                badge.textContent = '0/0';
+            } else {
+                badge.textContent = `${currentSearchIndex + 1}/${searchMatches.length}`;
+            }
+        }
+
+        document.addEventListener('keydown', (e) => {
+            if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'f') {
+                e.preventDefault();
+                toggleChatSearchBar();
             }
         });
 
